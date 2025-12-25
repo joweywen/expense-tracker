@@ -1,0 +1,13 @@
+{
+  "files.encoding": "utf8",
+  "files.autoGuessEncoding": false,
+  "[javascript]": {
+    "files.encoding": "utf8"
+  },
+  "[html]": {
+    "files.encoding": "utf8"
+  },
+  "[css]": {
+    "files.encoding": "utf8"
+  }
+}
