@@ -496,3 +496,122 @@ td {
     flex-wrap: wrap;
   }
 }
+/* ==================== Tab 样式 ==================== */
+.tabs-container {
+  margin-top: 30px;
+  background: white;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.tabs-nav {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 2px solid #e0e0e0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+  .tabs-nav::-webkit-scrollbar {
+    height: 4px;
+  }
+
+  .tabs-nav::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 2px;
+  }
+
+.tab-btn {
+  flex: 1;
+  min-width: 150px;
+  padding: 15px 20px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 15px;
+  font-weight: 600;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+  .tab-btn:hover {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+  }
+
+  .tab-btn.active {
+    background: white;
+    color: #667eea;
+    border-bottom-color: #667eea;
+  }
+
+.tabs-content {
+  padding: 25px;
+  min-height: 300px;
+}
+
+.tab-pane {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+  .tab-pane.active {
+    display: block;
+  }
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 移除原来的记录列表单独section样式 */
+.records-section {
+  display: none; /* 隐藏原来的记录section，因为已经整合到Tab中 */
+}
+
+/* Tab内的stat-group调整 */
+.tab-pane .stat-group {
+  margin-bottom: 0;
+}
+
+  .tab-pane .stat-group h3 {
+    display: none; /* Tab标题已经显示，内部标题隐藏 */
+  }
+
+/* 响应式Tab设计 */
+@media (max-width: 768px) {
+  .tab-btn {
+    min-width: 120px;
+    padding: 12px 15px;
+    font-size: 14px;
+  }
+
+  .tabs-content {
+    padding: 15px;
+  }
+}
+
+/* Tab切换时的高亮效果 */
+.tab-btn.active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+}
+
+.tab-btn {
+  position: relative;
+}

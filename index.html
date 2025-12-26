@@ -97,7 +97,7 @@
         </form>
       </section>
 
-      <!-- 统计结果 -->
+      <!-- 统计结果 - 改为Tab式 -->
       <section class="statistics-section">
         <div class="statistics-header">
           <h2>统计结果</h2>
@@ -136,47 +136,69 @@
           </div>
         </div>
 
-        <!-- 按日期统计 -->
-        <div class="stat-group">
-          <h3>📅 按日期统计</h3>
-          <div id="dateStats" class="stat-list"></div>
-        </div>
+        <!-- Tab导航 -->
+        <div class="tabs-container">
+          <div class="tabs-nav">
+            <button class="tab-btn active" data-tab="byDate">
+              📅 按日期统计
+            </button>
+            <button class="tab-btn" data-tab="byLocation">
+              📍 按位置统计
+            </button>
+            <button class="tab-btn" data-tab="byDateLocation">
+              📊 按日期和位置
+            </button>
+            <button class="tab-btn" data-tab="allRecords">
+              📋 所有记录
+            </button>
+          </div>
 
-        <!-- 按位置统计 -->
-        <div class="stat-group">
-          <h3>📍 按位置统计</h3>
-          <div id="locationStats" class="stat-list"></div>
-        </div>
+          <div class="tabs-content">
+            <!-- 按日期统计 Tab -->
+            <div class="tab-pane active" id="tab-byDate">
+              <div class="stat-group">
+                <div id="dateStats" class="stat-list"></div>
+              </div>
+            </div>
 
-        <!-- 按日期和位置统计 -->
-        <div class="stat-group">
-          <h3>📊 按日期和位置小计</h3>
-          <div id="dateLocationStats" class="stat-list"></div>
-        </div>
-      </section>
+            <!-- 按位置统计 Tab -->
+            <div class="tab-pane" id="tab-byLocation">
+              <div class="stat-group">
+                <div id="locationStats" class="stat-list"></div>
+              </div>
+            </div>
 
-      <!-- 记录列表 -->
-      <section class="records-section">
-        <h2>所有记录</h2>
-        <div class="table-container">
-          <table id="recordsTable">
-            <thead>
-              <tr>
-                <th>日期</th>
-                <th>姓名</th>
-                <th>USDT</th>
-                <th>人民币 (RMB)</th>
-                <th>泰铢 (THB)</th>
-                <th>位置</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="recordsBody">
-              <tr>
-                <td colspan="7" class="empty-message">暂无记录</td>
-              </tr>
-            </tbody>
-          </table>
+            <!-- 按日期和位置统计 Tab -->
+            <div class="tab-pane" id="tab-byDateLocation">
+              <div class="stat-group">
+                <div id="dateLocationStats" class="stat-list"></div>
+              </div>
+            </div>
+
+            <!-- 所有记录 Tab -->
+            <div class="tab-pane" id="tab-allRecords">
+              <div class="table-container">
+                <table id="recordsTable">
+                  <thead>
+                    <tr>
+                      <th>日期</th>
+                      <th>姓名</th>
+                      <th>USDT</th>
+                      <th>人民币 (RMB)</th>
+                      <th>泰铢 (THB)</th>
+                      <th>位置</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recordsBody">
+                    <tr>
+                      <td colspan="7" class="empty-message">暂无记录</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
     </main>

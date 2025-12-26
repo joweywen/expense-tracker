@@ -516,3 +516,40 @@ window.expenseAPI.onDataCleared(() => {
 
 // 页面加载时初始化
 window.addEventListener('DOMContentLoaded', initializeApp);
+// ==================== Tab 切换功能 ====================
+function initializeTabs() {
+  const tabBtns = document.querySelectorAll('.tab-btn');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+
+  tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetTab = btn.getAttribute('data-tab');
+
+      // 移除所有active状态
+      tabBtns.forEach(b => b.classList.remove('active'));
+      tabPanes.forEach(p => p.classList.remove('active'));
+
+      // 添加active到当前选中的
+      btn.classList.add('active');
+      document.getElementById(`tab-${targetTab}`).classList.add('active');
+
+      // 可选：存储当前选中的Tab
+      localStorage.setItem('activeTab', targetTab);
+    });
+  });
+
+  // 恢复上次选中的Tab
+  const savedTab = localStorage.getItem('activeTab');
+  if (savedTab) {
+    const savedBtn = document.querySelector(`[data-tab="${savedTab}"]`);
+    if (savedBtn) {
+      savedBtn.click();
+    }
+  }
+}
+
+// 在页面加载完成后初始化Tab
+window.addEventListener('DOMContentLoaded', () => {
+  initializeApp();
+  initializeTabs();
+});
