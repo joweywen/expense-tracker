@@ -18,10 +18,10 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "better-sqlite3": "^9.2.2"
+    "better-sqlite3": "^12.5.0"
   },
   "devDependencies": {
-    "electron": "^27.0.0",
+    "electron": "^39.2.7",
     "electron-builder": "^24.6.4",
     "electron-rebuild": "^3.2.9",
     "eslint": "^9.39.1"

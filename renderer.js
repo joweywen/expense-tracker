@@ -337,13 +337,20 @@ function displayRecords(expenses) {
           <td>฿${thb}</td>
           <td>${location}</td>
           <td>
-            <button class="btn-delete" onclick="deleteRecord(${expense.id})">删除</button>
+            <button class="btn-delete" data-id="${expense.id}">删除</button>
           </td>
         </tr>
       `;
     });
 
     recordsBody.innerHTML = rows.join('');
+    // 使用事件委托为删除按钮添加事件
+    recordsBody.querySelectorAll('.btn-delete').forEach(btn => {
+      btn.addEventListener('click', function () {
+        const id = parseInt(this.getAttribute('data-id'));
+        deleteRecord(id);
+      });
+    });
   } catch (error) {
     console.error('displayRecords 发生错误:', error);
     recordsBody.innerHTML = `<tr><td colspan="7" class="empty-message" style="color: red;">显示记录时出错: ${error.message}</td></tr>`;
