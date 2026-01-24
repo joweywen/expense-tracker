@@ -21,22 +21,22 @@ function initDatabase() {
   try {
     const dbPath = path.join(app.getPath('userData'), 'expenses.db');
     console.log('数据库路径:', dbPath);
-    
+
     // 确保目录存在
     const fs = require('fs');
     const dbDir = path.dirname(dbPath);
     if (!fs.existsSync(dbDir)) {
       fs.mkdirSync(dbDir, { recursive: true });
     }
-    
+
     db = new Database(dbPath);
-    
+
     // 检查表是否存在以及结构
     try {
       const tableInfo = db.prepare("PRAGMA table_info(expenses)").all();
       const hasRmbColumn = tableInfo.some(col => col.name === 'rmb');
       const hasUsdtThbRate = tableInfo.some(col => col.name === 'exchange_rate_usdt_thb');
-      
+
       if (tableInfo.length > 0 && (!hasRmbColumn || !hasUsdtThbRate)) {
         console.log('检测到旧版本数据库，开始迁移...');
         migrateDatabase();
@@ -44,7 +44,7 @@ function initDatabase() {
     } catch (err) {
       console.log('表不存在，将创建新表');
     }
-    
+
     // 创建或确保表存在
     // FIX: 使用模板字符串 (backticks `) 替换双引号 (") 来支持多行 SQL
     db.exec(`
@@ -63,7 +63,7 @@ function initDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 创建汇率设置表
     // FIX: 使用模板字符串 (backticks `) 替换双引号 (") 来支持多行 SQL
     db.exec(`
@@ -73,7 +73,7 @@ function initDatabase() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 读取保存的汇率
     try {
       const usdtThbRate = db.prepare('SELECT value FROM settings WHERE key = ?').get('exchange_rate_usdt_thb');
@@ -82,7 +82,7 @@ function initDatabase() {
       } else {
         db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_thb', exchangeRateUsdtThb.toString());
       }
-      
+
       const rmbThbRate = db.prepare('SELECT value FROM settings WHERE key = ?').get('exchange_rate_rmb_thb');
       if (rmbThbRate) {
         exchangeRateRmbThb = parseFloat(rmbThbRate.value);
@@ -94,7 +94,7 @@ function initDatabase() {
       db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_thb', exchangeRateUsdtThb.toString());
       db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_rmb_thb', exchangeRateRmbThb.toString());
     }
-    
+
     console.log('数据库初始化完成');
     console.log('USDT->THB 汇率:', exchangeRateUsdtThb);
     console.log('RMB->THB 汇率:', exchangeRateRmbThb);
@@ -108,11 +108,11 @@ function initDatabase() {
 // 数据库迁移函数
 function migrateDatabase() {
   console.log('开始数据库迁移...');
-  
+
   try {
     // 1. 重命名旧表
     db.exec('ALTER TABLE expenses RENAME TO expenses_old');
-    
+
     // 2. 创建新表结构
     db.exec(`
       CREATE TABLE expenses (
@@ -130,11 +130,11 @@ function migrateDatabase() {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )
     `);
-    
+
     // 3. 迁移数据
     const oldData = db.prepare('SELECT * FROM expenses_old').all();
     console.log(`迁移 ${oldData.length} 条记录...`);
-    
+
     const insertStmt = db.prepare(`
       INSERT INTO expenses (
         id, date, name, location, usdt, thb, rmb, 
@@ -142,7 +142,7 @@ function migrateDatabase() {
         input_type, timestamp, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     const migrate = db.transaction((records) => {
       for (const record of records) {
         insertStmt.run(
@@ -161,14 +161,14 @@ function migrateDatabase() {
         );
       }
     });
-    
+
     migrate(oldData);
-    
+
     // 4. 删除旧表
     db.exec('DROP TABLE expenses_old');
-    
+
     console.log('数据库迁移完成！');
-    
+
     // 显示迁移成功提示
     dialog.showMessageBox(null, {
       type: 'info',
@@ -176,10 +176,10 @@ function migrateDatabase() {
       message: '数据库已成功升级到新版本',
       detail: `已迁移 ${oldData.length} 条记录\n现在支持三币种（USDT/RMB/THB）`
     });
-    
+
   } catch (error) {
     console.error('数据库迁移失败:', error);
-    
+
     // 尝试恢复
     try {
       db.exec('DROP TABLE IF EXISTS expenses');
@@ -188,8 +188,8 @@ function migrateDatabase() {
     } catch (restoreError) {
       console.error('恢复失败:', restoreError);
     }
-    
-    dialog.showErrorBox('数据库迁移失败', 
+
+    dialog.showErrorBox('数据库迁移失败',
       '无法升级数据库到新版本。\n' +
       '建议：\n' +
       '1. 导出现有数据（如果可以）\n' +
@@ -222,7 +222,7 @@ function createWindow() {
 
   // 创建菜单
   const isMac = process.platform === 'darwin';
-  
+
   const template = [
     // macOS 特有的应用菜单
     ...(isMac ? [{
@@ -281,7 +281,7 @@ function createWindow() {
             const count = db.prepare('SELECT COUNT(*) as count FROM expenses').get();
             const dbSize = require('fs').statSync(path.join(app.getPath('userData'), 'expenses.db')).size;
             const sizeInKB = (dbSize / 1024).toFixed(2);
-            
+
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: '数据库信息',
@@ -291,8 +291,8 @@ function createWindow() {
           }
         },
         { type: 'separator' },
-        isMac ? 
-          { label: '关闭窗口', role: 'close' } : 
+        isMac ?
+          { label: '关闭窗口', role: 'close' } :
           { label: '退出', role: 'quit' }
       ]
     },
@@ -379,7 +379,7 @@ function createWindow() {
 // 导出数据功能
 function exportData() {
   const expenses = db.prepare('SELECT * FROM expenses ORDER BY date DESC, id DESC').all();
-  
+
   if (expenses.length === 0) {
     dialog.showMessageBox(mainWindow, {
       type: 'info',
@@ -388,7 +388,7 @@ function exportData() {
     });
     return;
   }
-  
+
   dialog.showSaveDialog(mainWindow, {
     title: '导出数据',
     defaultPath: `expenses_${new Date().toISOString().split('T')[0]}.json`,
@@ -409,9 +409,9 @@ function exportData() {
         totalRecords: expenses.length,
         expenses: expenses
       };
-      
+
       fs.writeFileSync(result.filePath, JSON.stringify(data, null, 2), 'utf-8');
-      
+
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: '导出成功',
@@ -426,7 +426,7 @@ ipcMain.handle('get-default-date-range', async () => {
   const today = new Date();
   const currentDay = today.getDate();
   let startDate, endDate;
-  
+
   if (currentDay > 26) {
     // 当天大于26号：当前月27号 至 下月26号
     startDate = new Date(today.getFullYear(), today.getMonth(), 27);
@@ -436,7 +436,7 @@ ipcMain.handle('get-default-date-range', async () => {
     startDate = new Date(today.getFullYear(), today.getMonth() - 1, 27);
     endDate = new Date(today.getFullYear(), today.getMonth(), 26);
   }
-  
+
   // 格式化为 YYYY-MM-DD
   const formatDate = (date) => {
     const year = date.getFullYear();
@@ -444,7 +444,7 @@ ipcMain.handle('get-default-date-range', async () => {
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
   };
-  
+
   return {
     startDate: formatDate(startDate),
     endDate: formatDate(endDate)
@@ -460,15 +460,15 @@ ipcMain.handle('set-exchange-rate', async (event, rates) => {
       db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
         .run('exchange_rate_usdt_thb', exchangeRateUsdtThb.toString());
     }
-    
+
     if (rates.rmbThb !== undefined) {
       exchangeRateRmbThb = parseFloat(rates.rmbThb);
       db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
         .run('exchange_rate_rmb_thb', exchangeRateRmbThb.toString());
     }
-    
-    return { 
-      success: true, 
+
+    return {
+      success: true,
       usdtThb: exchangeRateUsdtThb,
       rmbThb: exchangeRateRmbThb
     };
@@ -490,7 +490,7 @@ ipcMain.handle('get-exchange-rate', async () => {
 ipcMain.handle('add-expense', async (event, expense) => {
   try {
     let usdt = null, thb = 0, rmb = null;
-    
+
     if (expense.inputType === 'usdt') {
       usdt = parseFloat(expense.usdt);
       thb = usdt * exchangeRateUsdtThb;
@@ -505,7 +505,7 @@ ipcMain.handle('add-expense', async (event, expense) => {
       INSERT INTO expenses (date, name, location, usdt, thb, rmb, exchange_rate_usdt_thb, exchange_rate_rmb_thb, input_type, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    
+
     const result = stmt.run(
       expense.date,
       expense.name,
@@ -518,7 +518,7 @@ ipcMain.handle('add-expense', async (event, expense) => {
       expense.inputType,
       new Date().toISOString()
     );
-    
+
     return { success: true, id: result.lastInsertRowid };
   } catch (error) {
     console.error('添加记录失败:', error);
@@ -530,20 +530,20 @@ ipcMain.handle('add-expense', async (event, expense) => {
 ipcMain.handle('get-expenses', async (event, dateRange) => {
   try {
     console.log('开始查询所有记录...', dateRange);
-    
+
     let query = 'SELECT * FROM expenses';
     let params = [];
-    
+
     if (dateRange && dateRange.startDate && dateRange.endDate) {
       query += ' WHERE date BETWEEN ? AND ?';
       params = [dateRange.startDate, dateRange.endDate];
     }
-    
+
     query += ' ORDER BY date DESC, id DESC';
-    
+
     const expenses = db.prepare(query).all(...params);
     console.log('查询到记录数:', expenses.length);
-    
+
     // 检查并修复缺失的字段
     const fixedExpenses = expenses.map(expense => {
       if (!expense.exchange_rate_usdt_thb) {
@@ -554,7 +554,7 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
       }
       return expense;
     });
-    
+
     return fixedExpenses;
   } catch (error) {
     console.error('获取记录失败:', error);
@@ -567,7 +567,7 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
 ipcMain.handle('delete-expense', async (event, id) => {
   try {
     const result = db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
-    
+
     if (result.changes > 0) {
       return { success: true };
     } else {
@@ -583,27 +583,27 @@ ipcMain.handle('delete-expense', async (event, id) => {
 ipcMain.handle('calculate-statistics', async (event, dateRange) => {
   try {
     console.log('开始计算统计数据...', dateRange);
-    
+
     let query = 'SELECT * FROM expenses';
     let params = [];
-    
+
     if (dateRange && dateRange.startDate && dateRange.endDate) {
       query += ' WHERE date BETWEEN ? AND ?';
       params = [dateRange.startDate, dateRange.endDate];
     }
-    
+
     query += ' ORDER BY date DESC, id DESC';
-    
+
     const expenses = db.prepare(query).all(...params);
     console.log('用于统计的记录数:', expenses.length);
-    
+
     if (expenses.length === 0) {
       console.log('没有记录，返回空统计');
-      return { 
-        byDate: {}, 
-        byLocation: {}, 
-        byDateAndLocation: {}, 
-        totalUsdt: 0, 
+      return {
+        byDate: {},
+        byLocation: {},
+        byDateAndLocation: {},
+        totalUsdt: 0,
         totalThb: 0,
         totalRmb: 0,
         totalCount: 0,
@@ -617,7 +617,7 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
     const byDate = {};
     const byLocation = {};
     const byDateAndLocation = {};
-    
+
     // 计算统一的总额（三个币种互相换算后相加）
     let totalInUsdt = 0;  // 以 USDT 为基准
     let totalInRmb = 0;   // 以 RMB 为基准
@@ -627,12 +627,12 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
       // 获取当时的汇率（使用记录保存的汇率，如果没有则使用当前汇率）
       const rateUsdtThb = item.exchange_rate_usdt_thb || exchangeRateUsdtThb;
       const rateRmbThb = item.exchange_rate_rmb_thb || exchangeRateRmbThb;
-      
+
       // 计算每条记录换算到三种币种的等价值
       let recordInUsdt = 0;
       let recordInRmb = 0;
       let recordInThb = 0;
-      
+
       if (item.usdt) {
         // 如果输入的是 USDT
         recordInUsdt = item.usdt;
@@ -649,12 +649,12 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
         recordInUsdt = item.thb / rateUsdtThb;
         recordInRmb = item.thb / rateRmbThb;
       }
-      
+
       // 累加到总额
       totalInUsdt += recordInUsdt;
       totalInRmb += recordInRmb;
       totalInThb += recordInThb;
-      
+
       // 按日期统计
       if (!byDate[item.date]) {
         byDate[item.date] = {
@@ -720,7 +720,7 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
         rmbThb: exchangeRateRmbThb
       }
     };
-    
+
     console.log('统计计算完成:', {
       按日期: Object.keys(byDate).length,
       按位置: Object.keys(byLocation).length,
@@ -730,17 +730,17 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
       总额RMB: totalInRmb.toFixed(2),
       总额THB: totalInThb.toFixed(2)
     });
-    
+
     return result;
   } catch (error) {
     console.error('计算统计失败:', error);
     console.error('错误详情:', error.message);
     console.error('错误堆栈:', error.stack);
-    return { 
-      byDate: {}, 
-      byLocation: {}, 
-      byDateAndLocation: {}, 
-      totalUsdt: 0, 
+    return {
+      byDate: {},
+      byLocation: {},
+      byDateAndLocation: {},
+      totalUsdt: 0,
       totalThb: 0,
       totalRmb: 0,
       totalCount: 0,
@@ -755,7 +755,7 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
 app.whenReady().then(() => {
   initDatabase();
   createWindow();
-  
+
   // 启动汇率提醒定时器
   startRateReminderTimer();
 });
@@ -764,7 +764,7 @@ app.whenReady().then(() => {
 function startRateReminderTimer() {
   // 立即检查一次（如果是9点后启动）
   checkAndShowRateReminder();
-  
+
   // 每分钟检查一次
   setInterval(() => {
     checkAndShowRateReminder();
@@ -776,7 +776,7 @@ function checkAndShowRateReminder() {
   const now = new Date();
   const currentHour = now.getHours();
   const currentDate = now.toDateString();
-  
+
   // 检查是否是9点，且今天还没有提醒过
   if (currentHour === 9 && lastReminderDate !== currentDate) {
     lastReminderDate = currentDate;
@@ -790,7 +790,7 @@ function showRateReminderWindow() {
   if (rateReminderWindow && !rateReminderWindow.isDestroyed()) {
     rateReminderWindow.close();
   }
-  
+
   rateReminderWindow = new BrowserWindow({
     width: 500,
     height: 400,
@@ -805,9 +805,9 @@ function showRateReminderWindow() {
     title: '每日汇率更新提醒',
     alwaysOnTop: true
   });
-  
+
   rateReminderWindow.loadFile('rate-reminder.html');
-  
+
   rateReminderWindow.on('closed', () => {
     rateReminderWindow = null;
   });
@@ -819,20 +819,20 @@ ipcMain.handle('update-daily-rates', async (event, rates) => {
     // 调用 set-exchange-rate 处理器来更新汇率并保存到数据库
     // 注意: 由于 set-exchange-rate 已经是 ipcMain.handle，我们不能直接 emit，而是直接调用其逻辑
     // 考虑到 set-exchange-rate 的逻辑已经被正确包裹，我们在这里手动调用一次其内部逻辑，或者如果需要使用 IPC 机制，应该在渲染进程中触发
-    
+
     // 直接执行更新逻辑，而不是通过 emit/handle
     exchangeRateUsdtThb = parseFloat(rates.usdtThb);
     exchangeRateRmbThb = parseFloat(rates.rmbThb);
-    
+
     db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
       .run('exchange_rate_usdt_thb', exchangeRateUsdtThb.toString());
     db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
       .run('exchange_rate_rmb_thb', exchangeRateRmbThb.toString());
-    
+
     // 记录今日已更新
     db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
       .run('last_rate_update', new Date().toDateString());
-    
+
     // 通知主窗口汇率已更新
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('rates-updated', {
@@ -840,12 +840,12 @@ ipcMain.handle('update-daily-rates', async (event, rates) => {
         rmbThb: exchangeRateRmbThb
       });
     }
-    
+
     // 关闭提醒窗口
     if (rateReminderWindow && !rateReminderWindow.isDestroyed()) {
       rateReminderWindow.close();
     }
-    
+
     return { success: true };
   } catch (error) {
     console.error('更新每日汇率失败:', error);
