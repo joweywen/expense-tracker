@@ -816,10 +816,6 @@ function showRateReminderWindow() {
 // 处理汇率提醒窗口的更新
 ipcMain.handle('update-daily-rates', async (event, rates) => {
   try {
-    // 调用 set-exchange-rate 处理器来更新汇率并保存到数据库
-    // 注意: 由于 set-exchange-rate 已经是 ipcMain.handle，我们不能直接 emit，而是直接调用其逻辑
-    // 考虑到 set-exchange-rate 的逻辑已经被正确包裹，我们在这里手动调用一次其内部逻辑，或者如果需要使用 IPC 机制，应该在渲染进程中触发
-
     // 直接执行更新逻辑，而不是通过 emit/handle
     exchangeRateUsdtThb = parseFloat(rates.usdtThb);
     exchangeRateRmbThb = parseFloat(rates.rmbThb);
@@ -872,5 +868,45 @@ app.on('activate', () => {
 app.on('will-quit', () => {
   if (db) {
     db.close();
+  }
+});
+
+// ============= 增量功能：仅在文件末尾添加 =============
+
+ipcMain.handle('get-rank-data', async (event, { type, limit }) => {
+  try {
+    let sql = "";
+    if (type === 'name') {
+      sql = `SELECT name as label, SUM(usdt) as value FROM expenses GROUP BY name ORDER BY value DESC`;
+    } else if (type === 'location') {
+      sql = `SELECT location as label, SUM(usdt) as value FROM expenses GROUP BY location ORDER BY value DESC`;
+    } else if (type === 'amount') {
+      // 需求：按金额对应姓名和位置的 Top10
+      sql = `SELECT (name || ' - ' || location) as label, usdt as value FROM expenses ORDER BY usdt DESC`;
+    }
+
+    // 如果有传入 limit 参数（如 10），则追加 LIMIT 子句
+    if (limit) {
+      sql += ` LIMIT ${limit}`;
+    } else if (type === 'amount') {
+      // 如果是金额排行且没传 limit，默认取前 10
+      sql += ` LIMIT 10`;
+    }
+
+    return db.prepare(sql).all();
+  } catch (err) {
+    console.error('获取排行数据失败:', err);
+    return [];
+  }
+});
+
+ipcMain.handle('get-suggestions', async () => {
+  try {
+    const names = db.prepare('SELECT DISTINCT name FROM expenses').all().map(r => r.name);
+    const locations = db.prepare('SELECT DISTINCT location FROM expenses').all().map(r => r.location);
+    return { names, locations };
+  } catch (err) {
+    console.error('获取建议失败:', err);
+    return { names: [], locations: [] };
   }
 });

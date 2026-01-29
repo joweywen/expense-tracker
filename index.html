@@ -6,6 +6,7 @@
   <title>费用统计器 - 双币种版</title>
   <link rel="stylesheet" href="styles.css">
 </head>
+
 <body>
   <div class="container">
     <header>
@@ -17,7 +18,6 @@
     </header>
 
     <main>
-      <!-- 汇率设置区域 -->
       <section class="rate-section">
         <div class="rate-card">
           <h3>⚙️ 汇率设置</h3>
@@ -37,7 +37,6 @@
         </div>
       </section>
 
-      <!-- 输入表单 -->
       <section class="input-section">
         <h2>录入费用信息</h2>
         <form id="expenseForm">
@@ -48,42 +47,32 @@
             </div>
             <div class="form-group">
               <label for="name">姓名 *</label>
-              <input type="text" id="name" placeholder="请输入姓名" required>
+              <input type="text" id="name" list="nameList" placeholder="请输入姓名" required>
             </div>
             <div class="form-group">
               <label for="location">位置 *</label>
               <input type="text" id="location" placeholder="请输入位置" required list="locationList">
-              <datalist id="locationList">
-                <option value="曼谷">
-                <option value="清迈">
-                <option value="普吉">
-                <option value="芭提雅">
-              </datalist>
             </div>
           </div>
 
-          <!-- 金额输入区域 -->
           <div class="currency-input-section">
             <h3>金额输入（选择一种币种输入，其他自动计算）</h3>
             <div class="form-row">
               <div class="form-group currency-group">
                 <label for="usdtAmount">
-                  <input type="radio" name="inputType" value="usdt" checked>
-                  USDT 金额
+                  <input type="radio" name="inputType" value="usdt" checked> USDT 金额
                 </label>
                 <input type="number" id="usdtAmount" step="0.01" min="0" placeholder="0.00">
               </div>
               <div class="form-group currency-group">
                 <label for="rmbAmount">
-                  <input type="radio" name="inputType" value="rmb">
-                  人民币 (RMB) 金额
+                  <input type="radio" name="inputType" value="rmb"> 人民币 (RMB) 金额
                 </label>
                 <input type="number" id="rmbAmount" step="0.01" min="0" placeholder="0.00" disabled>
               </div>
               <div class="form-group currency-group">
                 <label for="thbAmount">
-                  <input type="radio" name="inputType" value="thb">
-                  泰铢 (THB) 金额
+                  <input type="radio" name="inputType" value="thb"> 泰铢 (THB) 金额
                 </label>
                 <input type="number" id="thbAmount" step="0.01" min="0" placeholder="0.00" disabled>
               </div>
@@ -92,111 +81,64 @@
               <span id="conversionText">请输入金额</span>
             </div>
           </div>
-
           <button type="submit" class="btn-primary">添加记录</button>
         </form>
       </section>
 
-      <!-- 统计结果 - 改为Tab式 -->
       <section class="statistics-section">
         <div class="statistics-header">
-          <h2>统计结果</h2>
-          <div class="filter-controls">
-            <span class="filter-label">📅 账期筛选：</span>
-            <input type="date" id="startDate" placeholder="开始日期">
+          <h2>统计与筛选</h2>
+          <div class="filter-controls" style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center;">
+            <input type="text" id="filterName" placeholder="🔍 姓名搜索..." list="nameList" style="width: 120px;">
+            <input type="text" id="filterLocation" placeholder="🔍 位置搜索..." list="locationList" style="width: 120px;">
+
+            <span class="filter-label">📅 账期：</span>
+            <input type="date" id="startDate">
             <span>至</span>
-            <input type="date" id="endDate" placeholder="结束日期">
+            <input type="date" id="endDate">
+
             <button id="filterBtn" class="btn-secondary">筛选</button>
             <button id="clearFilterBtn" class="btn-secondary">显示全部</button>
             <button id="refreshBtn" class="btn-secondary">刷新</button>
           </div>
         </div>
 
-        <div class="filter-info">
-          💡 默认显示本账期数据（27号-次月26号）
-        </div>
-
-        <!-- 总览 -->
         <div class="overview">
-          <div class="stat-card">
-            <div class="stat-label">总记录数</div>
-            <div class="stat-value" id="totalCount">0</div>
-          </div>
-          <div class="stat-card highlight-usdt">
-            <div class="stat-label">总金额 (USDT)</div>
-            <div class="stat-value" id="totalUsdt">0.00</div>
-          </div>
-          <div class="stat-card highlight-rmb">
-            <div class="stat-label">总金额 (RMB)</div>
-            <div class="stat-value" id="totalRmb">¥0.00</div>
-          </div>
-          <div class="stat-card highlight-thb">
-            <div class="stat-label">总金额 (THB)</div>
-            <div class="stat-value" id="totalThb">฿0.00</div>
-          </div>
+          <div class="stat-card"><div class="stat-label">总记录数</div><div class="stat-value" id="totalCount">0</div></div>
+          <div class="stat-card highlight-usdt"><div class="stat-label">总金额 (USDT)</div><div class="stat-value" id="totalUsdt">0.00</div></div>
+          <div class="stat-card highlight-rmb"><div class="stat-label">总金额 (RMB)</div><div class="stat-value" id="totalRmb">¥0.00</div></div>
+          <div class="stat-card highlight-thb"><div class="stat-label">总金额 (THB)</div><div class="stat-value" id="totalThb">฿0.00</div></div>
         </div>
 
-        <!-- Tab导航 -->
         <div class="tabs-container">
           <div class="tabs-nav">
-            <button class="tab-btn active" data-tab="byDate">
-              📅 按日期统计
-            </button>
-            <button class="tab-btn" data-tab="byLocation">
-              📍 按位置统计
-            </button>
-            <button class="tab-btn" data-tab="byDateLocation">
-              📊 按日期和位置
-            </button>
-            <button class="tab-btn" data-tab="allRecords">
-              📋 所有记录
-            </button>
+            <button class="tab-btn active" data-tab="byDate">📅 日期统计</button>
+            <button class="tab-btn" data-tab="byLocation">📍 位置统计</button>
+            <button class="tab-btn" data-tab="byDateLocation">📊 日期+位置</button>
+            <button class="tab-btn" data-tab="allRecords">📋 所有记录</button>
+            <button class="tab-btn" data-tab="tab-rank">🏆 排行榜</button>
           </div>
 
           <div class="tabs-content">
-            <!-- 按日期统计 Tab -->
-            <div class="tab-pane active" id="tab-byDate">
-              <div class="stat-group">
-                <div id="dateStats" class="stat-list"></div>
-              </div>
-            </div>
-
-            <!-- 按位置统计 Tab -->
-            <div class="tab-pane" id="tab-byLocation">
-              <div class="stat-group">
-                <div id="locationStats" class="stat-list"></div>
-              </div>
-            </div>
-
-            <!-- 按日期和位置统计 Tab -->
-            <div class="tab-pane" id="tab-byDateLocation">
-              <div class="stat-group">
-                <div id="dateLocationStats" class="stat-list"></div>
-              </div>
-            </div>
-
-            <!-- 所有记录 Tab -->
+            <div class="tab-pane active" id="tab-byDate"><div id="dateStats" class="stat-list"></div></div>
+            <div class="tab-pane" id="tab-byLocation"><div id="locationStats" class="stat-list"></div></div>
+            <div class="tab-pane" id="tab-byDateLocation"><div id="dateLocationStats" class="stat-list"></div></div>
             <div class="tab-pane" id="tab-allRecords">
               <div class="table-container">
                 <table id="recordsTable">
-                  <thead>
-                    <tr>
-                      <th>日期</th>
-                      <th>姓名</th>
-                      <th>USDT</th>
-                      <th>人民币 (RMB)</th>
-                      <th>泰铢 (THB)</th>
-                      <th>位置</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody id="recordsBody">
-                    <tr>
-                      <td colspan="7" class="empty-message">暂无记录</td>
-                    </tr>
-                  </tbody>
+                  <thead><tr><th>日期</th><th>姓名</th><th>USDT</th><th>RMB</th><th>THB</th><th>位置</th><th>操作</th></tr></thead>
+                  <tbody id="recordsBody"></tbody>
                 </table>
               </div>
+            </div>
+
+            <div class="tab-pane" id="tab-rank">
+              <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <button class="btn-secondary" onclick="renderRankChart('name')">姓名 TOP10</button>
+                <button class="btn-secondary" onclick="renderRankChart('location')">位置 TOP10</button>
+                <button class="btn-secondary" onclick="renderRankChart('amount')">金额 TOP10</button>
+              </div>
+              <div id="rankChartContainer" style="width: 100%; height: 450px; background: #fff; border-radius: 8px;"></div>
             </div>
           </div>
         </div>
@@ -204,6 +146,10 @@
     </main>
   </div>
 
+  <datalist id="nameList"></datalist>
+  <datalist id="locationList"></datalist>
+
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

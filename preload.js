@@ -2,6 +2,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // 暴露安全的API给渲染进程
 contextBridge.exposeInMainWorld('expenseAPI', {
+  // 在 contextBridge 的那个大括号里找到末尾，加上这两行：
+  getRankData: (params) => ipcRenderer.invoke('get-rank-data', params),
+  getSuggestions: () => ipcRenderer.invoke('get-suggestions'),
   // 获取默认日期区间
   getDefaultDateRange: () => ipcRenderer.invoke('get-default-date-range'),
 
@@ -34,4 +37,5 @@ contextBridge.exposeInMainWorld('expenseAPI', {
   onDataCleared: (callback) => {
     ipcRenderer.on('data-cleared', callback);
   }
+
 });
