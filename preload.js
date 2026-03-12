@@ -36,6 +36,9 @@ contextBridge.exposeInMainWorld('expenseAPI', {
   // 监听数据清空事件
   onDataCleared: (callback) => {
     ipcRenderer.on('data-cleared', callback);
-  }
+  },
+
+  // 增量添加：设置 USDT 到 RMB 的汇率接口
+  setUsdtRmbRate: (rate) => ipcRenderer.invoke('set-usdt-rmb-rate', rate)
 
 });

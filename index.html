@@ -13,7 +13,8 @@
       <h1>💰 费用统计管理系统 (USDT/RMB/THB)</h1>
       <div class="exchange-rate-display">
         1 USDT = <span id="currentRateUsdtThb">35.50</span> THB &nbsp;|&nbsp;
-        1 RMB = <span id="currentRateRmbThb">4.90</span> THB
+        1 RMB = <span id="currentRateRmbThb">4.90</span> THB &nbsp;|&nbsp;
+        1 USDT = <span id="currentRateUsdtRmb">7.24</span> RMB
       </div>
     </header>
 
@@ -31,6 +32,11 @@
               <label for="exchangeRateRmbThb">1 RMB = </label>
               <input type="number" id="exchangeRateRmbThb" step="0.01" min="0" value="4.90">
               <span>THB</span>
+            </div>
+            <div class="rate-item">
+              <label for="exchangeRateUsdtRmb">1 USDT = </label>
+              <input type="number" id="exchangeRateUsdtRmb" step="0.01" min="0" value="7.24">
+              <span>RMB</span>
             </div>
             <button id="setRateBtn" class="btn-rate">设置汇率</button>
           </div>

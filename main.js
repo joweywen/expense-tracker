@@ -14,6 +14,7 @@ let rateReminderWindow;
 let db;
 let exchangeRateUsdtThb = 35.5; // USDT 到 THB 汇率
 let exchangeRateRmbThb = 4.9;    // RMB 到 THB 汇率 <--- 已修正潜在的特殊空格
+let exchangeRateUsdtRmb = 7.24;  // 新增：USDT 到 RMB 汇率
 let lastReminderDate = null;     // 上次提醒日期      <--- 已修正潜在的特殊空格
 
 // 初始化数据库
@@ -89,15 +90,26 @@ function initDatabase() {
       } else {
         db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_rmb_thb', exchangeRateRmbThb.toString());
       }
+
+      // 增量添加：读取 USDT/RMB 汇率
+      const usdtRmbRate = db.prepare('SELECT value FROM settings WHERE key = ?').get('exchange_rate_usdt_rmb');
+      if (usdtRmbRate) {
+        exchangeRateUsdtRmb = parseFloat(usdtRmbRate.value);
+      } else {
+        db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_rmb', exchangeRateUsdtRmb.toString());
+      }
+
     } catch (err) {
       console.log('读取汇率失败，使用默认值:', err);
       db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_thb', exchangeRateUsdtThb.toString());
       db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_rmb_thb', exchangeRateRmbThb.toString());
+      db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_rmb', exchangeRateUsdtRmb.toString());
     }
 
     console.log('数据库初始化完成');
     console.log('USDT->THB 汇率:', exchangeRateUsdtThb);
     console.log('RMB->THB 汇率:', exchangeRateRmbThb);
+    console.log('USDT->RMB 汇率:', exchangeRateUsdtRmb);
   } catch (error) {
     console.error('数据库初始化失败:', error);
     dialog.showErrorBox('数据库错误', '无法初始化数据库:\n' + error.message);
@@ -404,7 +416,8 @@ function exportData() {
         // 注意: 这里的 exchangeRate 变量可能是旧版本遗留的，应该使用新的 usdt/rmb 汇率
         exchangeRates: {
           usdtThb: exchangeRateUsdtThb,
-          rmbThb: exchangeRateRmbThb
+          rmbThb: exchangeRateRmbThb,
+          usdtRmb: exchangeRateUsdtRmb
         },
         totalRecords: expenses.length,
         expenses: expenses
@@ -482,7 +495,8 @@ ipcMain.handle('set-exchange-rate', async (event, rates) => {
 ipcMain.handle('get-exchange-rate', async () => {
   return {
     usdtThb: exchangeRateUsdtThb,
-    rmbThb: exchangeRateRmbThb
+    rmbThb: exchangeRateRmbThb,
+    usdtRmb: exchangeRateUsdtRmb
   };
 });
 
@@ -494,11 +508,17 @@ ipcMain.handle('add-expense', async (event, expense) => {
     if (expense.inputType === 'usdt') {
       usdt = parseFloat(expense.usdt);
       thb = usdt * exchangeRateUsdtThb;
+      // 增量修改：根据新汇率计算 RMB
+      rmb = usdt * exchangeRateUsdtRmb;
     } else if (expense.inputType === 'rmb') {
       rmb = parseFloat(expense.rmb);
       thb = rmb * exchangeRateRmbThb;
+      // 增量修改：根据新汇率反算 USDT
+      usdt = rmb / exchangeRateUsdtRmb;
     } else {
       thb = parseFloat(expense.thb);
+      usdt = thb / exchangeRateUsdtThb;
+      rmb = thb / exchangeRateRmbThb;
     }
 
     const stmt = db.prepare(`
@@ -552,6 +572,16 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
       if (!expense.exchange_rate_rmb_thb) {
         expense.exchange_rate_rmb_thb = exchangeRateRmbThb;
       }
+
+      // FIX 1: 解决 USDT 和 RMB 金额为空的情况
+      // 如果字段为 null/0，则基于 THB 和当前/历史汇率反推
+      if (!expense.usdt || expense.usdt === 0) {
+        expense.usdt = expense.thb / (expense.exchange_rate_usdt_thb || exchangeRateUsdtThb);
+      }
+      if (!expense.rmb || expense.rmb === 0) {
+        expense.rmb = expense.thb / (expense.exchange_rate_rmb_thb || exchangeRateRmbThb);
+      }
+
       return expense;
     });
 
@@ -873,23 +903,26 @@ app.on('will-quit', () => {
 
 // ============= 增量功能：仅在文件末尾添加 =============
 
+// FIX 2: 修复排行榜数据为空错误问题
 ipcMain.handle('get-rank-data', async (event, { type, limit }) => {
   try {
     let sql = "";
     if (type === 'name') {
-      sql = `SELECT name as label, SUM(usdt) as value FROM expenses GROUP BY name ORDER BY value DESC`;
+      // 聚合查询
+      sql = `SELECT name as label, SUM(usdt) as value FROM expenses GROUP BY name HAVING value > 0 ORDER BY value DESC`;
     } else if (type === 'location') {
-      sql = `SELECT location as label, SUM(usdt) as value FROM expenses GROUP BY location ORDER BY value DESC`;
+      // 聚合查询
+      sql = `SELECT location as label, SUM(usdt) as value FROM expenses GROUP BY location HAVING value > 0 ORDER BY value DESC`;
     } else if (type === 'amount') {
       // 需求：按金额对应姓名和位置的 Top10
-      sql = `SELECT (name || ' - ' || location) as label, usdt as value FROM expenses ORDER BY usdt DESC`;
+      sql = `SELECT (name || ' - ' || location) as label, usdt as value FROM expenses WHERE usdt > 0 ORDER BY value DESC`;
     }
 
     // 如果有传入 limit 参数（如 10），则追加 LIMIT 子句
     if (limit) {
       sql += ` LIMIT ${limit}`;
-    } else if (type === 'amount') {
-      // 如果是金额排行且没传 limit，默认取前 10
+    } else if (type === 'amount' || type === 'name' || type === 'location') {
+      // 默认取前 10
       sql += ` LIMIT 10`;
     }
 
@@ -908,5 +941,18 @@ ipcMain.handle('get-suggestions', async () => {
   } catch (err) {
     console.error('获取建议失败:', err);
     return { names: [], locations: [] };
+  }
+});
+
+// 功能 1 新增：设置 USDT 换人民币汇率接口
+ipcMain.handle('set-usdt-rmb-rate', async (event, rate) => {
+  try {
+    exchangeRateUsdtRmb = parseFloat(rate);
+    db.prepare('INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)')
+      .run('exchange_rate_usdt_rmb', exchangeRateUsdtRmb.toString());
+    return { success: true, rate: exchangeRateUsdtRmb };
+  } catch (error) {
+    console.error('设置USDT-RMB汇率失败:', error);
+    return { success: false, error: error.message };
   }
 });

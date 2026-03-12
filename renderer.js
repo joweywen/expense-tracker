@@ -8,9 +8,15 @@ const rmbAmountInput = document.getElementById('rmbAmount');
 const thbAmountInput = document.getElementById('thbAmount');
 const exchangeRateUsdtThbInput = document.getElementById('exchangeRateUsdtThb');
 const exchangeRateRmbThbInput = document.getElementById('exchangeRateRmbThb');
+// 增量添加：USDT/RMB 汇率输入框
+const exchangeRateUsdtRmbInput = document.getElementById('exchangeRateUsdtRmb');
+
 const setRateBtn = document.getElementById('setRateBtn');
 const currentRateUsdtThbDisplay = document.getElementById('currentRateUsdtThb');
 const currentRateRmbThbDisplay = document.getElementById('currentRateRmbThb');
+// 增量添加：USDT/RMB 汇率显示
+const currentRateUsdtRmbDisplay = document.getElementById('currentRateUsdtRmb');
+
 const conversionText = document.getElementById('conversionText');
 const refreshBtn = document.getElementById('refreshBtn');
 const filterBtn = document.getElementById('filterBtn');
@@ -32,6 +38,8 @@ const filterLocationInput = document.getElementById('filterLocation');
 
 let currentExchangeRateUsdtThb = 35.5;
 let currentExchangeRateRmbThb = 4.9;
+// 增量添加：USDT/RMB 汇率变量
+let currentExchangeRateUsdtRmb = 7.24;
 let currentDateRange = null;
 
 // 设置默认日期为今天
@@ -43,10 +51,18 @@ async function initializeApp() {
     const rates = await window.expenseAPI.getExchangeRate();
     currentExchangeRateUsdtThb = rates.usdtThb;
     currentExchangeRateRmbThb = rates.rmbThb;
+    // 增量：初始化新汇率
+    currentExchangeRateUsdtRmb = rates.usdtRmb || 7.24;
+
     exchangeRateUsdtThbInput.value = rates.usdtThb;
     exchangeRateRmbThbInput.value = rates.rmbThb;
+    // 增量：同步到输入框
+    if (exchangeRateUsdtRmbInput) exchangeRateUsdtRmbInput.value = currentExchangeRateUsdtRmb;
+
     currentRateUsdtThbDisplay.textContent = rates.usdtThb.toFixed(2);
     currentRateRmbThbDisplay.textContent = rates.rmbThb.toFixed(2);
+    // 增量：同步到显示区
+    if (currentRateUsdtRmbDisplay) currentRateUsdtRmbDisplay.textContent = currentExchangeRateUsdtRmb.toFixed(2);
 
     // 设置默认日期区间（账期：27号到26号）
     const defaultRange = await window.expenseAPI.getDefaultDateRange();
@@ -82,23 +98,33 @@ window.expenseAPI.onRatesUpdated((rates) => {
 setRateBtn.addEventListener('click', async () => {
   const newUsdtThbRate = parseFloat(exchangeRateUsdtThbInput.value);
   const newRmbThbRate = parseFloat(exchangeRateRmbThbInput.value);
+  // 增量：获取新汇率值
+  const newUsdtRmbRate = exchangeRateUsdtRmbInput ? parseFloat(exchangeRateUsdtRmbInput.value) : currentExchangeRateUsdtRmb;
 
-  if (isNaN(newUsdtThbRate) || newUsdtThbRate <= 0 || isNaN(newRmbThbRate) || newRmbThbRate <= 0) {
+  if (isNaN(newUsdtThbRate) || newUsdtThbRate <= 0 || isNaN(newRmbThbRate) || newRmbThbRate <= 0 || isNaN(newUsdtRmbRate) || newUsdtRmbRate <= 0) {
     showNotification('请输入有效的汇率', 'error');
     return;
   }
 
   try {
+    // 保存 USDT/THB 和 RMB/THB
     const result = await window.expenseAPI.setExchangeRate({
       usdtThb: newUsdtThbRate,
       rmbThb: newRmbThbRate
     });
 
+    // 增量：保存 USDT/RMB
+    await window.expenseAPI.setUsdtRmbRate(newUsdtRmbRate);
+
     if (result.success) {
       currentExchangeRateUsdtThb = result.usdtThb;
       currentExchangeRateRmbThb = result.rmbThb;
+      currentExchangeRateUsdtRmb = newUsdtRmbRate;
+
       currentRateUsdtThbDisplay.textContent = result.usdtThb.toFixed(2);
       currentRateRmbThbDisplay.textContent = result.rmbThb.toFixed(2);
+      if (currentRateUsdtRmbDisplay) currentRateUsdtRmbDisplay.textContent = newUsdtRmbRate.toFixed(2);
+
       showNotification('汇率设置成功！', 'success');
       updateConversionDisplay();
     }
@@ -144,7 +170,8 @@ function updateConversionDisplay() {
     const usdt = parseFloat(usdtAmountInput.value);
     if (!isNaN(usdt) && usdt > 0) {
       const thb = usdt * currentExchangeRateUsdtThb;
-      conversionText.innerHTML = `${usdt.toFixed(2)} USDT = <strong>${thb.toFixed(2)} THB</strong>`;
+      const rmb = usdt * currentExchangeRateUsdtRmb; // 增量计算
+      conversionText.innerHTML = `${usdt.toFixed(2)} USDT ≈ <strong>${rmb.toFixed(2)} RMB</strong> | <strong>${thb.toFixed(2)} THB</strong>`;
     } else {
       conversionText.textContent = '请输入 USDT 金额';
     }
@@ -152,14 +179,17 @@ function updateConversionDisplay() {
     const rmb = parseFloat(rmbAmountInput.value);
     if (!isNaN(rmb) && rmb > 0) {
       const thb = rmb * currentExchangeRateRmbThb;
-      conversionText.innerHTML = `${rmb.toFixed(2)} RMB = <strong>${thb.toFixed(2)} THB</strong>`;
+      const usdt = rmb / currentExchangeRateUsdtRmb; // 增量计算
+      conversionText.innerHTML = `${rmb.toFixed(2)} RMB ≈ <strong>${usdt.toFixed(2)} USDT</strong> | <strong>${thb.toFixed(2)} THB</strong>`;
     } else {
       conversionText.textContent = '请输入人民币金额';
     }
   } else {
     const thb = parseFloat(thbAmountInput.value);
     if (!isNaN(thb) && thb > 0) {
-      conversionText.innerHTML = `泰铢金额: <strong>${thb.toFixed(2)} THB</strong>`;
+      const usdt = thb / currentExchangeRateUsdtThb;
+      const rmb = thb / currentExchangeRateRmbThb;
+      conversionText.innerHTML = `${thb.toFixed(2)} THB ≈ <strong>${usdt.toFixed(2)} USDT</strong> | <strong>${rmb.toFixed(2)} RMB</strong>`;
     } else {
       conversionText.textContent = '请输入泰铢金额';
     }
@@ -258,7 +288,6 @@ async function loadAndDisplayData() {
     // 如果排行榜 Tab 是激活状态，自动刷新图表
     const activeTab = localStorage.getItem('activeTab');
     if (activeTab === 'rank') {
-      // 默认刷一个排行
       renderRankChart('name');
     }
   } catch (error) {
@@ -300,11 +329,10 @@ async function renderRankChart(type, limit = 10) {
     }]
   };
   myChart.setOption(option, true);
-  // 关键：防止容器尺寸未计算导致的显示异常
   setTimeout(() => myChart.resize(), 100);
 }
 
-// 显示记录列表、统计数据等其余函数 (保持你原有的 displayRecords, displayStatistics 等逻辑)
+// 显示记录列表
 function displayRecords(expenses) {
   if (!expenses || expenses.length === 0) {
     recordsBody.innerHTML = '<tr><td colspan="7" class="empty-message">暂无记录</td></tr>';
@@ -329,7 +357,7 @@ function displayRecords(expenses) {
   recordsBody.innerHTML = rows.join('');
 }
 
-// 为删除按钮提供全局访问（如果是内联 onclick）
+// 为删除按钮提供全局访问
 window.deleteRecord = async function (id) {
   if (!confirm('确定要删除吗？')) return;
   const result = await window.expenseAPI.deleteExpense(id);
@@ -376,7 +404,7 @@ function showNotification(message, type = 'info') {
   n.className = `notification ${type}`;
   n.style.cssText = `position:fixed;top:20px;right:20px;padding:10px 20px;background:#333;color:#fff;border-radius:5px;z-index:9999;`;
   n.textContent = message;
-  document.body.appendChild(n);
+  document.body.appendChild(n);cd 
   setTimeout(() => n.remove(), 3000);
 }
 
@@ -392,7 +420,6 @@ function initializeTabs() {
       btn.classList.add('active');
       document.getElementById(`tab-${target}`).classList.add('active');
       localStorage.setItem('activeTab', target);
-      // 如果切到排行 Tab，默认加载姓名排行
       if (target === 'rank') renderRankChart('name');
     });
   });
