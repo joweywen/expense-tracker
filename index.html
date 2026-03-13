@@ -157,5 +157,112 @@
 
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
   <script src="renderer.js"></script>
+
+  <!--<script>
+    // 强制覆盖全局删除函数，解决焦点丢失导致的键盘失效
+    window.deleteExpense = async function (id) {
+      if (!confirm('确定要删除这条记录吗？')) return;
+
+      try {
+        const success = await window.expenseAPI.deleteExpense(id);
+        if (success) {
+          // 刷新数据
+          if (typeof loadData === 'function') {
+            await loadData();
+          } else {
+            document.getElementById('refreshBtn')?.click();
+          }
+
+          // 核心修复：释放焦点，恢复键盘输入
+          if (document.activeElement) {
+            document.activeElement.blur();
+          }
+
+          setTimeout(() => {
+            const nameInput = document.getElementById('name');
+            if (nameInput) {
+              nameInput.focus();
+              console.log('焦点已恢复至姓名输入框');
+            }
+          }, 100); // 稍微增加延迟确保表格重绘完成
+        }
+      } catch (err) {
+        console.error('删除操作失败:', err);
+      }
+    };
+
+    // 添加记录后的自动聚焦优化
+    document.getElementById('expenseForm')?.addEventListener('submit', () => {
+      setTimeout(() => {
+        const nameInput = document.getElementById('name');
+        if (nameInput) nameInput.focus();
+      }, 500);
+    });
+  </script>-->
+  <script>
+    // 1. 核心联想词更新函数
+    async function updateSuggestions() {
+      try {
+        // 调用 main.js 暴露的 getSuggestions 接口
+        const { names, locations } = await window.expenseAPI.getSuggestions();
+
+        const nameList = document.getElementById('nameList');
+        const locationList = document.getElementById('locationList');
+
+        if (nameList) {
+          // 将姓名数组转为 <option> 标签
+          nameList.innerHTML = names.map(name => `<option value="${name}">`).join('');
+        }
+
+        if (locationList) {
+          // 将位置数组转为 <option> 标签
+          locationList.innerHTML = locations.map(loc => `<option value="${loc}">`).join('');
+        }
+        console.log('联想词库更新成功:', names.length, '个姓名', locations.length, '个位置');
+      } catch (err) {
+        console.error('更新联想建议失败:', err);
+      }
+    }
+
+    // 2. 强制覆盖全局删除函数 (你原有的逻辑保持不变)
+    window.deleteExpense = async function (id) {
+      if (!confirm('确定要删除这条记录吗？')) return;
+      try {
+        const success = await window.expenseAPI.deleteExpense(id);
+        if (success) {
+          if (typeof loadData === 'function') {
+            await loadData();
+          } else {
+            document.getElementById('refreshBtn')?.click();
+          }
+          // 删除后更新一次联想词（万一删掉的是唯一的某个词）
+          updateSuggestions();
+
+          if (document.activeElement) document.activeElement.blur();
+          setTimeout(() => {
+            document.getElementById('name')?.focus();
+          }, 100);
+        }
+      } catch (err) {
+        console.error('删除操作失败:', err);
+      }
+    };
+
+    // 3. 页面加载完成后立即获取一次联想词
+    window.addEventListener('DOMContentLoaded', () => {
+      updateSuggestions();
+
+      // 如果有日期初始化逻辑也写在这里
+      const nameInput = document.getElementById('name');
+      if (nameInput) nameInput.focus();
+    });
+
+    // 4. 表单提交成功后再次更新联想词
+    document.getElementById('expenseForm')?.addEventListener('submit', async (e) => {
+      // 注意：这里建议在 renderer.js 的提交逻辑里调用 updateSuggestions
+      // 如果 renderer.js 没写，就在这里补一个延迟刷新
+      setTimeout(updateSuggestions, 1000);
+    });
+  </script>
 </body>
 </html>

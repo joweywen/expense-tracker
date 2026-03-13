@@ -1283,3 +1283,31 @@
 [2026-03-12 08:00:41] Checking... (15/15)
 [2026-03-12 08:00:41] WARNING: Process started but port 3000 is still silent.
 [2026-03-12 08:00:41] ==== Process Complete ====
+[2026-03-13 08:00:01] ==== [FORCE RESTART] Cleaning processes... ====
+[2026-03-13 08:00:02] Stopping Process: electron.exe (PID: 17464)
+[2026-03-13 08:00:02] Stopping Process: electron.exe (PID: 20812)
+[2026-03-13 08:00:02] Stopping Process: electron.exe (PID: 20124)
+[2026-03-13 08:00:03] Stopping Process: electron.exe (PID: 18952)
+[2026-03-13 08:00:03] Stopping Process: electron.exe (PID: 36140)
+[2026-03-13 08:00:03] Stopping Process: electron.exe (PID: 38552)
+[2026-03-13 08:00:04] Stopping Process: electron.exe (PID: 31828)
+[2026-03-13 08:00:04] Stopping Process: electron.exe (PID: 21620)
+[2026-03-13 08:00:04] Stopping Process: electron.exe (PID: 23080)
+[2026-03-13 08:00:12] Launching Electron via CMD...
+[2026-03-13 08:00:16] Checking... (1/15)
+[2026-03-13 08:00:19] Checking... (2/15)
+[2026-03-13 08:00:22] Checking... (3/15)
+[2026-03-13 08:00:26] Checking... (4/15)
+[2026-03-13 08:00:29] Checking... (5/15)
+[2026-03-13 08:00:32] Checking... (6/15)
+[2026-03-13 08:00:36] Checking... (7/15)
+[2026-03-13 08:00:39] Checking... (8/15)
+[2026-03-13 08:00:42] Checking... (9/15)
+[2026-03-13 08:00:46] Checking... (10/15)
+[2026-03-13 08:00:49] Checking... (11/15)
+[2026-03-13 08:00:52] Checking... (12/15)
+[2026-03-13 08:00:56] Checking... (13/15)
+[2026-03-13 08:00:59] Checking... (14/15)
+[2026-03-13 08:01:03] Checking... (15/15)
+[2026-03-13 08:01:03] WARNING: Process started but port 3000 is still silent.
+[2026-03-13 08:01:03] ==== Process Complete ====
