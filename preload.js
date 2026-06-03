@@ -38,7 +38,13 @@ contextBridge.exposeInMainWorld('expenseAPI', {
     ipcRenderer.on('data-cleared', callback);
   },
 
+  // 在 contextBridge.exposeInMainWorld('expenseAPI', { ... }) 中添加：
+  addReservation: (data) => ipcRenderer.invoke('add-reservation', data),
+  getReservations: (date) => ipcRenderer.invoke('get-reservations', date),
+  deleteReservation: (id) => ipcRenderer.invoke('delete-reservation', id),
+
   // 增量添加：设置 USDT 到 RMB 的汇率接口
   setUsdtRmbRate: (rate) => ipcRenderer.invoke('set-usdt-rmb-rate', rate)
+
 
 });

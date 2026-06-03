@@ -123,6 +123,7 @@
             <button class="tab-btn" data-tab="byDateLocation">📊 日期+位置</button>
             <button class="tab-btn" data-tab="allRecords">📋 所有记录</button>
             <button class="tab-btn" data-tab="tab-rank">🏆 排行榜</button>
+            <button class="tab-btn" data-tab="exchangeReserve" style="background: #e6f7ff; color: #1890ff; font-weight: bold;">📝 预约换汇</button>
           </div>
 
           <div class="tabs-content">
@@ -146,6 +147,71 @@
               </div>
               <div id="rankChartContainer" style="width: 100%; height: 450px; background: #fff; border-radius: 8px;"></div>
             </div>
+
+            <div class="tab-pane" id="tab-exchangeReserve">
+              <div style="background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 20px;">
+                <h3 style="margin-top:0">📝 新增换汇预约</h3>
+                <form id="reserveForm">
+                  <div class="form-row">
+                    <div class="form-group"><label>姓名 *</label><input type="text" id="resName" list="nameList" required></div>
+                    <div class="form-group">
+                      <label>换汇类型 *</label>
+                      <input type="text" id="resType" list="typeList" placeholder="选择或直接输入" required>
+                      <datalist id="typeList">
+                        <option value="U换人民币-支付宝">
+                        <option value="U换人民币-微信">
+                        <option value="U换泰铢现金">
+                        <option value="U换泰铢银行卡转账">
+                        <option value="U换泰铢truemoney转账">
+                      </datalist>
+                    </div>
+                    <div class="form-group"><label>预约时间 *</label><input type="date" id="resDate" required></div>
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label>取送类型</label>
+                      <select id="resDelivery" style="padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        <option value="自取">自取</option>
+                        <option value="送上门">送上门</option>
+                      </select>
+                    </div>
+                    <div class="form-group"><label>送钱位置</label><input type="text" id="resLocation" list="locationList" placeholder="模糊匹配输入"></div>
+                    <div class="form-group">
+                      <label>预约金额 (选填)</label>
+                      <div style="display:flex; gap:5px;">
+                        <input type="number" id="resUsdt" placeholder="USDT" step="0.01" style="width:33%">
+                        <input type="number" id="resRmb" placeholder="RMB" step="0.01" style="width:33%">
+                        <input type="number" id="resThb" placeholder="THB" step="0.01" style="width:33%">
+                      </div>
+                    </div>
+                  </div>
+                  <button type="submit" class="btn-primary" style="margin-top: 10px; width: 200px;">保存添加预约记录</button>
+                </form>
+              </div>
+
+              <div class="statistics-header">
+                <h2>📅 预约汇总统计 (<span id="currentReserveDateDisplay">-</span>)</h2>
+                <div style="display:flex; align-items:center; gap:10px;">
+                  <span>查看日期：</span>
+                  <input type="date" id="reserveQueryDate">
+                </div>
+              </div>
+
+              <div class="overview" style="margin-bottom: 15px; background: #fffbe6; border-color: #ffe58f;">
+                <div class="stat-card"><div class="stat-label">当天预约 USDT</div><div class="stat-value" id="resTotalUsdt" style="color:#d48806">0.00</div></div>
+                <div class="stat-card"><div class="stat-label">当天预约 RMB</div><div class="stat-value" id="resTotalRmb" style="color:#cf1322">¥0.00</div></div>
+                <div class="stat-card"><div class="stat-label">当天预约 THB</div><div class="stat-value" id="resTotalThb" style="color:#389e0d">฿0.00</div></div>
+              </div>
+
+              <div class="table-container">
+                <table>
+                  <thead>
+                    <tr><th>姓名</th><th>换汇类型</th><th>取送</th><th>位置</th><th>USDT</th><th>RMB</th><th>THB</th><th>操作</th></tr>
+                  </thead>
+                  <tbody id="reserveTableBody"></tbody>
+                </table>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -159,109 +225,65 @@
   <script src="renderer.js"></script>
 
   <!--<script>
-    // 强制覆盖全局删除函数，解决焦点丢失导致的键盘失效
-    window.deleteExpense = async function (id) {
-      if (!confirm('确定要删除这条记录吗？')) return;
-
-      try {
-        const success = await window.expenseAPI.deleteExpense(id);
-        if (success) {
-          // 刷新数据
-          if (typeof loadData === 'function') {
-            await loadData();
-          } else {
-            document.getElementById('refreshBtn')?.click();
-          }
-
-          // 核心修复：释放焦点，恢复键盘输入
-          if (document.activeElement) {
-            document.activeElement.blur();
-          }
-
-          setTimeout(() => {
-            const nameInput = document.getElementById('name');
-            if (nameInput) {
-              nameInput.focus();
-              console.log('焦点已恢复至姓名输入框');
-            }
-          }, 100); // 稍微增加延迟确保表格重绘完成
-        }
-      } catch (err) {
-        console.error('删除操作失败:', err);
-      }
-    };
-
-    // 添加记录后的自动聚焦优化
-    document.getElementById('expenseForm')?.addEventListener('submit', () => {
-      setTimeout(() => {
-        const nameInput = document.getElementById('name');
-        if (nameInput) nameInput.focus();
-      }, 500);
-    });
-  </script>-->
-  <script>
     // 1. 核心联想词更新函数
     async function updateSuggestions() {
       try {
-        // 调用 main.js 暴露的 getSuggestions 接口
         const { names, locations } = await window.expenseAPI.getSuggestions();
-
         const nameList = document.getElementById('nameList');
         const locationList = document.getElementById('locationList');
-
-        if (nameList) {
-          // 将姓名数组转为 <option> 标签
-          nameList.innerHTML = names.map(name => `<option value="${name}">`).join('');
-        }
-
-        if (locationList) {
-          // 将位置数组转为 <option> 标签
-          locationList.innerHTML = locations.map(loc => `<option value="${loc}">`).join('');
-        }
-        console.log('联想词库更新成功:', names.length, '个姓名', locations.length, '个位置');
-      } catch (err) {
-        console.error('更新联想建议失败:', err);
-      }
+        if (nameList) nameList.innerHTML = names.map(name => `<option value="${name}">`).join('');
+        if (locationList) locationList.innerHTML = locations.map(loc => `<option value="${loc}">`).join('');
+      } catch (err) { console.error('更新联想建议失败:', err); }
     }
 
-    // 2. 强制覆盖全局删除函数 (你原有的逻辑保持不变)
+    // 2. 强制覆盖全局删除函数
+    // 2. 修正后的全局删除函数
     window.deleteExpense = async function (id) {
       if (!confirm('确定要删除这条记录吗？')) return;
       try {
-        const success = await window.expenseAPI.deleteExpense(id);
-        if (success) {
-          if (typeof loadData === 'function') {
-            await loadData();
+        const result = await window.expenseAPI.deleteExpense(id); // 假设 API 返回 {success: true}
+        if (result && result.success) {
+          // 这里改为调用你实际定义的函数名
+          if (typeof loadAndDisplayData === 'function') {
+            await loadAndDisplayData();
           } else {
             document.getElementById('refreshBtn')?.click();
           }
-          // 删除后更新一次联想词（万一删掉的是唯一的某个词）
           updateSuggestions();
-
           if (document.activeElement) document.activeElement.blur();
-          setTimeout(() => {
-            document.getElementById('name')?.focus();
-          }, 100);
+          setTimeout(() => { document.getElementById('name')?.focus(); }, 100);
         }
-      } catch (err) {
-        console.error('删除操作失败:', err);
-      }
+      } catch (err) { console.error('删除操作失败:', err); }
     };
 
-    // 3. 页面加载完成后立即获取一次联想词
+    // 3. 初始化
     window.addEventListener('DOMContentLoaded', () => {
       updateSuggestions();
-
-      // 如果有日期初始化逻辑也写在这里
       const nameInput = document.getElementById('name');
       if (nameInput) nameInput.focus();
     });
 
-    // 4. 表单提交成功后再次更新联想词
-    document.getElementById('expenseForm')?.addEventListener('submit', async (e) => {
-      // 注意：这里建议在 renderer.js 的提交逻辑里调用 updateSuggestions
-      // 如果 renderer.js 没写，就在这里补一个延迟刷新
+    // 4. 表单提交后更新
+    document.getElementById('expenseForm')?.addEventListener('submit', () => {
       setTimeout(updateSuggestions, 1000);
+    });
+  </script>-->
+  <script>
+    // 1. 初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      // 确保联想词加载
+      if (typeof window.updateSuggestions === 'function') {
+        window.updateSuggestions();
+      }
+      const nameInput = document.getElementById('name');
+      if (nameInput) nameInput.focus();
+    });
+
+    // 2. 表单提交后更新 (防抖处理)
+    document.getElementById('expenseForm')?.addEventListener('submit', () => {
+      setTimeout(() => {
+        if (typeof window.updateSuggestions === 'function') window.updateSuggestions();
+      }, 1000);
     });
   </script>
 </body>

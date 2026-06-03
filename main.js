@@ -1,7 +1,10 @@
 // -*- coding: utf-8 -*-
+
+// 强制在 app 加载任何东西之前禁用硬件加速
 const { app, BrowserWindow, ipcMain, Menu, dialog } = require('electron');
 const path = require('path');
 const Database = require('better-sqlite3');
+const fs = require('fs');
 
 // 禁用硬件加速
 app.disableHardwareAcceleration();
@@ -18,14 +21,22 @@ let lastReminderDate = null;
 // 初始化数据库
 function initDatabase() {
   try {
-    const dbPath = path.join(app.getPath('userData'), 'expenses.db');
-    const fs = require('fs');
-    const dbDir = path.dirname(dbPath);
-    if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
+    // 1. 获取存放数据库的正确路径
+    const userDataPath = app.getPath('userData');
 
+    // 2. 确保路径是完整且合法的 Windows 路径
+    const dbPath = path.resolve(userDataPath, 'expenses.db');
+
+    console.log("数据库路径:", dbPath);
+
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true });
+    }
+
+    // 3. 初始化数据库
     db = new Database(dbPath);
 
-    // 自动检查并创建表
+    // 自动检查并创建表 (已删除非法的 SQL 注释)
     db.exec(`
       CREATE TABLE IF NOT EXISTS expenses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,6 +57,18 @@ function initDatabase() {
         value TEXT NOT NULL,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
+      CREATE TABLE IF NOT EXISTS reservations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        exchange_type TEXT NOT NULL,
+        reserve_date TEXT NOT NULL,
+        delivery_type TEXT NOT NULL,
+        location TEXT,
+        usdt_amount REAL DEFAULT 0,
+        rmb_amount REAL DEFAULT 0,
+        thb_amount REAL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
     `);
 
     // 加载设置
@@ -62,7 +85,8 @@ function initDatabase() {
 
     console.log('数据库初始化成功');
   } catch (error) {
-    dialog.showErrorBox('数据库错误', error.message);
+    console.error("数据库初始化报错:", error);
+    dialog.showErrorBox('数据库错误', '路径解析错误，请删除 AppData 下的残留数据后重试：\n' + error.message);
     app.quit();
   }
 }
@@ -82,14 +106,12 @@ function createWindow() {
 
 // --- IPC 处理 ---
 
-// 获取汇率
 ipcMain.handle('get-exchange-rate', async () => ({
   usdtThb: exchangeRateUsdtThb,
   rmbThb: exchangeRateRmbThb,
   usdtRmb: exchangeRateUsdtRmb
 }));
 
-// 设置汇率
 ipcMain.handle('set-exchange-rate', async (event, rates) => {
   if (rates.usdtThb) {
     exchangeRateUsdtThb = parseFloat(rates.usdtThb);
@@ -102,7 +124,6 @@ ipcMain.handle('set-exchange-rate', async (event, rates) => {
   return { success: true };
 });
 
-// 添加记录
 ipcMain.handle('add-expense', async (event, expense) => {
   try {
     let usdt = null, thb = 0, rmb = null;
@@ -131,7 +152,6 @@ ipcMain.handle('add-expense', async (event, expense) => {
   } catch (e) { return { success: false, error: e.message }; }
 });
 
-// 获取所有记录 (带自动反算修正)
 ipcMain.handle('get-expenses', async (event, dateRange) => {
   try {
     let sql = 'SELECT * FROM expenses';
@@ -146,7 +166,6 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
     return rows.map(row => {
       const rUsdtThb = row.exchange_rate_usdt_thb || exchangeRateUsdtThb;
       const rRmbThb = row.exchange_rate_rmb_thb || exchangeRateRmbThb;
-      // 如果字段是空，根据泰铢反推
       if (!row.usdt) row.usdt = row.thb / rUsdtThb;
       if (!row.rmb) row.rmb = row.thb / rRmbThb;
       return row;
@@ -154,7 +173,6 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
   } catch (e) { return []; }
 });
 
-// 统计逻辑 (彻底修正统计为 0 的问题)
 ipcMain.handle('calculate-statistics', async (event, dateRange) => {
   try {
     let sql = 'SELECT * FROM expenses';
@@ -171,7 +189,6 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
       const rUsdtThb = item.exchange_rate_usdt_thb || exchangeRateUsdtThb;
       const rRmbThb = item.exchange_rate_rmb_thb || exchangeRateRmbThb;
 
-      // 无论存的是啥，统一转换计算
       let vUsdt = item.usdt || (item.thb / rUsdtThb);
       let vThb = item.thb;
       let vRmb = item.rmb || (item.thb / rRmbThb);
@@ -181,7 +198,17 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
       stats.totalRmb += vRmb;
 
       const update = (obj, key) => {
-        if (!obj[key]) obj[key] = { totalUsdt: 0, totalThb: 0, totalRmb: 0, count: 0 };
+        if (!obj[key]) {
+          obj[key] = {
+            totalUsdt: 0,
+            totalThb: 0,
+            totalRmb: 0,
+            count: 0,
+            // 必须显式添加这两个字段，否则前端拿不到
+            date: item.date,
+            location: item.location
+          };
+        }
         obj[key].totalUsdt += vUsdt;
         obj[key].totalThb += vThb;
         obj[key].totalRmb += vRmb;
@@ -197,13 +224,11 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
   } catch (e) { return { totalCount: 0 }; }
 });
 
-// 删除记录
 ipcMain.handle('delete-expense', async (event, id) => {
   db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
   return { success: true };
 });
 
-// 排行榜
 ipcMain.handle('get-rank-data', async (event, { type, limit = 10 }) => {
   try {
     let sql = "";
@@ -211,27 +236,23 @@ ipcMain.handle('get-rank-data', async (event, { type, limit = 10 }) => {
     else if (type === 'location') sql = `SELECT location as label, SUM(thb) as total_thb FROM expenses GROUP BY location ORDER BY total_thb DESC LIMIT ${limit}`;
     else sql = `SELECT (name || '-' || location) as label, thb as total_thb FROM expenses ORDER BY thb DESC LIMIT ${limit}`;
 
-    // 返回给 Echarts，金额统一转换成 USDT 展示比较直观
     const data = db.prepare(sql).all();
     return data.map(d => ({ label: d.label, value: d.total_thb / exchangeRateUsdtThb }));
   } catch (e) { return []; }
 });
 
-// 联想建议
 ipcMain.handle('get-suggestions', async () => {
-  const names = db.prepare('SELECT DISTINCT name FROM expenses').all().map(r => r.name);
-  const locs = db.prepare('SELECT DISTINCT location FROM expenses').all().map(r => r.location);
+  const names = db.prepare(`SELECT name FROM expenses UNION SELECT name FROM reservations`).all().map(r => r.name);
+  const locs = db.prepare(`SELECT location FROM expenses UNION SELECT location FROM reservations`).all().map(r => r.location);
   return { names, locations: locs };
 });
 
-// 设置 USDT-RMB 汇率
 ipcMain.handle('set-usdt-rmb-rate', async (event, rate) => {
   exchangeRateUsdtRmb = parseFloat(rate);
   db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)').run('exchange_rate_usdt_rmb', rate.toString());
   return { success: true };
 });
 
-// 默认日期
 ipcMain.handle('get-default-date-range', async () => {
   const today = new Date();
   const day = today.getDate();
@@ -241,7 +262,41 @@ ipcMain.handle('get-default-date-range', async () => {
   return { startDate: fmt(start), endDate: fmt(end) };
 });
 
-// 生命周期
+ipcMain.handle('add-reservation', async (event, data) => {
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO reservations (name, exchange_type, reserve_date, delivery_type, location, usdt_amount, rmb_amount, thb_amount)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    stmt.run(data.name, data.type, data.date, data.delivery, data.location, data.usdt || 0, data.rmb || 0, data.thb || 0);
+    return { success: true };
+  } catch (e) {
+    console.error('保存预约失败:', e);
+    return { success: false, error: e.message };
+  }
+});
+
+ipcMain.handle('get-reservations', async (event, date) => {
+  try {
+    const records = db.prepare('SELECT * FROM reservations WHERE reserve_date = ? ORDER BY id DESC').all(date);
+    const stats = db.prepare(`
+      SELECT SUM(usdt_amount) as totalUsdt, SUM(rmb_amount) as totalRmb, SUM(thb_amount) as totalThb 
+      FROM reservations WHERE reserve_date = ?
+    `).get(date);
+    return {
+      records,
+      stats: { totalUsdt: stats.totalUsdt || 0, totalRmb: stats.totalRmb || 0, totalThb: stats.totalThb || 0 }
+    };
+  } catch (e) {
+    return { records: [], stats: { totalUsdt: 0, totalRmb: 0, totalThb: 0 } };
+  }
+});
+
+ipcMain.handle('delete-reservation', async (event, id) => {
+  db.prepare('DELETE FROM reservations WHERE id = ?').run(id);
+  return { success: true };
+});
+
 app.whenReady().then(() => {
   initDatabase();
   createWindow();

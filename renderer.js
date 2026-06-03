@@ -1,4 +1,4 @@
-// DOM 元素
+// --- DOM 元素 (原有的) ---
 const form = document.getElementById('expenseForm');
 const dateInput = document.getElementById('date');
 const nameInput = document.getElementById('name');
@@ -29,16 +29,27 @@ const totalThbEl = document.getElementById('totalThb');
 const dateStatsEl = document.getElementById('dateStats');
 const locationStatsEl = document.getElementById('locationStats');
 const dateLocationStatsEl = document.getElementById('dateLocationStats');
-
 const filterNameInput = document.getElementById('filterName');
 const filterLocationInput = document.getElementById('filterLocation');
+
+// --- 新增：预约换汇相关 DOM ---
+const reserveForm = document.getElementById('reserveForm');
+const reserveQueryDateInput = document.getElementById('reserveQueryDate');
+const reserveTableBody = document.getElementById('reserveTableBody');
+const reserveDateDisplay = document.getElementById('currentReserveDateDisplay');
+const resTotalUsdtEl = document.getElementById('resTotalUsdt');
+const resTotalRmbEl = document.getElementById('resTotalRmb');
+const resTotalThbEl = document.getElementById('resTotalThb');
 
 let currentExchangeRateUsdtThb = 35.5;
 let currentExchangeRateRmbThb = 4.9;
 let currentExchangeRateUsdtRmb = 7.24;
 let currentDateRange = null;
 
+// 初始化日期
 if (dateInput) dateInput.valueAsDate = new Date();
+if (reserveQueryDateInput) reserveQueryDateInput.valueAsDate = new Date();
+if (document.getElementById('resDate')) document.getElementById('resDate').valueAsDate = new Date();
 
 async function initializeApp() {
   try {
@@ -66,12 +77,13 @@ async function initializeApp() {
     };
 
     await loadAndDisplayData();
-    await updateInputSuggestions(); // 初始加载联想词
+    await updateInputSuggestions();
   } catch (error) {
     console.error('初始化失败:', error);
   }
 }
 
+// --- 原有汇率处理逻辑 ---
 window.expenseAPI.onRatesUpdated((rates) => {
   currentExchangeRateUsdtThb = rates.usdtThb;
   currentExchangeRateRmbThb = rates.rmbThb;
@@ -91,50 +103,30 @@ setRateBtn.addEventListener('click', async () => {
     showNotification('请输入有效的汇率', 'error');
     return;
   }
-
   try {
-    const result = await window.expenseAPI.setExchangeRate({
-      usdtThb: newUsdtThbRate,
-      rmbThb: newRmbThbRate
-    });
+    const result = await window.expenseAPI.setExchangeRate({ usdtThb: newUsdtThbRate, rmbThb: newRmbThbRate });
     await window.expenseAPI.setUsdtRmbRate(newUsdtRmbRate);
-
     if (result.success) {
       currentExchangeRateUsdtThb = newUsdtThbRate;
       currentExchangeRateRmbThb = newRmbThbRate;
       currentExchangeRateUsdtRmb = newUsdtRmbRate;
-
       currentRateUsdtThbDisplay.textContent = currentExchangeRateUsdtThb.toFixed(2);
       currentRateRmbThbDisplay.textContent = currentExchangeRateRmbThb.toFixed(2);
       if (currentRateUsdtRmbDisplay) currentRateUsdtRmbDisplay.textContent = newUsdtRmbRate.toFixed(2);
-
       showNotification('汇率设置成功！', 'success');
       updateConversionDisplay();
     }
-  } catch (error) {
-    showNotification('设置汇率失败：' + error.message, 'error');
-  }
+  } catch (error) { showNotification('设置汇率失败：' + error.message, 'error'); }
 });
 
+// --- 原有金额输入与转换逻辑 ---
 document.querySelectorAll('input[name="inputType"]').forEach(radio => {
   radio.addEventListener('change', (e) => {
-    usdtAmountInput.disabled = true;
-    rmbAmountInput.disabled = true;
-    thbAmountInput.disabled = true;
-    usdtAmountInput.value = '';
-    rmbAmountInput.value = '';
-    thbAmountInput.value = '';
-
-    if (e.target.value === 'usdt') {
-      usdtAmountInput.disabled = false;
-      usdtAmountInput.focus();
-    } else if (e.target.value === 'rmb') {
-      rmbAmountInput.disabled = false;
-      rmbAmountInput.focus();
-    } else {
-      thbAmountInput.disabled = false;
-      thbAmountInput.focus();
-    }
+    usdtAmountInput.disabled = true; rmbAmountInput.disabled = true; thbAmountInput.disabled = true;
+    usdtAmountInput.value = ''; rmbAmountInput.value = ''; thbAmountInput.value = '';
+    if (e.target.value === 'usdt') { usdtAmountInput.disabled = false; usdtAmountInput.focus(); }
+    else if (e.target.value === 'rmb') { rmbAmountInput.disabled = false; rmbAmountInput.focus(); }
+    else { thbAmountInput.disabled = false; thbAmountInput.focus(); }
     updateConversionDisplay();
   });
 });
@@ -169,6 +161,7 @@ function updateConversionDisplay() {
   }
 }
 
+// --- 原有费用记录提交逻辑 ---
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const inputType = document.querySelector('input[name="inputType"]:checked').value;
@@ -178,7 +171,6 @@ form.addEventListener('submit', async (e) => {
     location: locationInput.value.trim(),
     inputType: inputType
   };
-
   if (inputType === 'usdt') expense.usdt = parseFloat(usdtAmountInput.value);
   else if (inputType === 'rmb') expense.rmb = parseFloat(rmbAmountInput.value);
   else expense.thb = parseFloat(thbAmountInput.value);
@@ -186,22 +178,99 @@ form.addEventListener('submit', async (e) => {
   try {
     const result = await window.expenseAPI.addExpense(expense);
     if (result.success) {
-      nameInput.value = '';
-      locationInput.value = '';
-      usdtAmountInput.value = '';
-      rmbAmountInput.value = '';
-      thbAmountInput.value = '';
+      nameInput.value = ''; locationInput.value = ''; usdtAmountInput.value = ''; rmbAmountInput.value = ''; thbAmountInput.value = '';
       dateInput.valueAsDate = new Date();
       conversionText.textContent = '请输入金额';
       await loadAndDisplayData();
-      await updateInputSuggestions(); // 成功后刷新联想词
-      showNotification('添加成功！', 'success');
+      await updateInputSuggestions();
+      showNotification('费用添加成功！', 'success');
+      nameInput.focus();
     }
-  } catch (error) {
-    showNotification('操作失败：' + error.message, 'error');
-  }
+  } catch (error) { showNotification('操作失败：' + error.message, 'error'); }
 });
 
+// --- 新增：预约换汇逻辑处理 ---
+
+// 1. 提交预约申请
+if (reserveForm) {
+  reserveForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = {
+      name: document.getElementById('resName').value.trim(),
+      type: document.getElementById('resType').value.trim(),
+      date: document.getElementById('resDate').value,
+      delivery: document.getElementById('resDelivery').value,
+      location: document.getElementById('resLocation').value.trim(),
+      usdt: parseFloat(document.getElementById('resUsdt').value) || 0,
+      rmb: parseFloat(document.getElementById('resRmb').value) || 0,
+      thb: parseFloat(document.getElementById('resThb').value) || 0
+    };
+
+    try {
+      const result = await window.expenseAPI.addReservation(data);
+      if (result.success) {
+        showNotification('预约记录添加成功！', 'success');
+        reserveForm.reset();
+        document.getElementById('resDate').valueAsDate = new Date();
+        // 如果添加的是当天的，刷新列表
+        if (data.date === reserveQueryDateInput.value) { loadReservations(); }
+        await updateInputSuggestions();
+      }
+    } catch (err) { showNotification('预约失败:' + err.message, 'error'); }
+  });
+}
+
+// 2. 加载预约列表
+async function loadReservations() {
+  const date = reserveQueryDateInput.value;
+  if (!date) return;
+  reserveDateDisplay.textContent = date;
+
+  try {
+    const { records, stats } = await window.expenseAPI.getReservations(date);
+
+    // 更新统计卡片
+    resTotalUsdtEl.textContent = (stats.totalUsdt || 0).toFixed(2);
+    resTotalRmbEl.textContent = '¥' + (stats.totalRmb || 0).toFixed(2);
+    resTotalThbEl.textContent = '฿' + (stats.totalThb || 0).toFixed(2);
+
+    // 更新表格
+    if (!records || records.length === 0) {
+      reserveTableBody.innerHTML = '<tr><td colspan="8" style="text-align:center">该日期暂无预约记录</td></tr>';
+      return;
+    }
+
+    reserveTableBody.innerHTML = records.map(r => `
+      <tr>
+        <td>${r.name}</td>
+        <td><span style="color:#1890ff">${r.exchange_type}</span></td>
+        <td>${r.delivery_type}</td>
+        <td>${r.location || '-'}</td>
+        <td style="font-weight:bold">${r.usdt_amount > 0 ? r.usdt_amount.toFixed(2) : '-'}</td>
+        <td style="color:#cf1322">${r.rmb_amount > 0 ? '¥' + r.rmb_amount.toFixed(2) : '-'}</td>
+        <td style="color:#389e0d">${r.thb_amount > 0 ? '฿' + r.thb_amount.toFixed(2) : '-'}</td>
+        <td><button class="btn-delete" onclick="deleteReservationRecord(${r.id})">删除</button></td>
+      </tr>
+    `).join('');
+  } catch (err) { console.error('加载预约失败', err); }
+}
+
+// 3. 删除预约记录
+window.deleteReservationRecord = async function (id) {
+  if (!confirm('确定删除此预约吗？')) return;
+  const result = await window.expenseAPI.deleteReservation(id);
+  if (result.success) {
+    showNotification('预约已删除', 'success');
+    loadReservations();
+  }
+};
+
+// 4. 预约日期切换监听
+if (reserveQueryDateInput) {
+  reserveQueryDateInput.addEventListener('change', loadReservations);
+}
+
+// --- 原有数据加载与统计显示 ---
 refreshBtn.addEventListener('click', () => loadAndDisplayData());
 
 filterBtn.addEventListener('click', () => {
@@ -215,8 +284,7 @@ filterBtn.addEventListener('click', () => {
 });
 
 clearFilterBtn.addEventListener('click', () => {
-  startDateInput.value = '';
-  endDateInput.value = '';
+  startDateInput.value = ''; endDateInput.value = '';
   if (filterNameInput) filterNameInput.value = '';
   if (filterLocationInput) filterLocationInput.value = '';
   currentDateRange = null;
@@ -231,6 +299,7 @@ async function loadAndDisplayData() {
     displayStatistics(stats || {});
     const activeTab = localStorage.getItem('activeTab');
     if (activeTab === 'rank') renderRankChart('name');
+    if (activeTab === 'exchangeReserve') loadReservations();
   } catch (error) {
     console.error('加载数据失败:', error);
     showNotification('加载数据失败', 'error');
@@ -263,6 +332,7 @@ function displayRecords(expenses) {
     recordsBody.innerHTML = '<tr><td colspan="7">暂无记录</td></tr>';
     return;
   }
+  // 修正：删除了所有的注释代码，只保留一个删除按钮
   const rows = expenses.map((expense) => `
     <tr>
       <td>${expense.date}</td>
@@ -296,16 +366,17 @@ function displayDateStats(byDate) {
   if (!byDate) { dateStatsEl.innerHTML = '暂无数据'; return; }
   const sortedDates = Object.keys(byDate).sort().reverse();
   dateStatsEl.innerHTML = sortedDates.map(date => {
-    const data = byDate[date];
-    return `<div class="stat-item"><b>${date}</b> | USDT: ${data.totalUsdt.toFixed(2)}</div>`;
+    const d = byDate[date];
+    // 拼接展示三个币种
+    return `<div class="stat-item"><b>${date}</b> | USDT: ${d.totalUsdt.toFixed(2)} | RMB: ${d.totalRmb.toFixed(2)} | THB: ${d.totalThb.toFixed(2)}</div>`;
   }).join('');
 }
 
 function displayLocationStats(byLocation) {
   if (!byLocation) { locationStatsEl.innerHTML = '暂无数据'; return; }
   const sorted = Object.entries(byLocation).sort((a, b) => b[1].totalThb - a[1].totalThb);
-  locationStatsEl.innerHTML = sorted.map(([loc, data]) => `
-    <div class="stat-item"><b>${loc}</b> | USDT: ${data.totalUsdt.toFixed(2)}</div>`).join('');
+  locationStatsEl.innerHTML = sorted.map(([loc, d]) => `
+    <div class="stat-item"><b>${loc}</b> | USDT: ${d.totalUsdt.toFixed(2)} | RMB: ${d.totalRmb.toFixed(2)} | THB: ${d.totalThb.toFixed(2)}</div>`).join('');
 }
 
 function displayDateLocationStats(byDateAndLocation) {
@@ -313,15 +384,31 @@ function displayDateLocationStats(byDateAndLocation) {
     dateLocationStatsEl.innerHTML = '暂无数据';
     return;
   }
-  const sorted = Object.values(byDateAndLocation).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-  dateLocationStatsEl.innerHTML = sorted.map(data => `
-    <div class="stat-item"><b>${data.date || '未定'} - ${data.location || '未知'}</b> | USDT: ${(data.totalUsdt || 0).toFixed(2)}</div>`).join('');
+
+  // 调试：打开控制台看这里打印出来的内容，确认是否有 date 和 location 字段
+  console.log("收到的 byDateAndLocation 数据:", byDateAndLocation);
+
+  const statsArray = Object.values(byDateAndLocation);
+
+  dateLocationStatsEl.innerHTML = statsArray.map(data => {
+    // 增加逻辑，如果 data.date 为空，尝试从 key 中解析（如果 key 是 'date_location' 格式）
+    const displayDate = data.date || '未知日期';
+    const displayLoc = data.location || '未知位置';
+
+    return `
+      <div class="stat-item">
+        <b>${displayDate} - ${displayLoc}</b> 
+        | USDT: ${(data.totalUsdt || 0).toFixed(2)} 
+        | RMB: ${(data.totalRmb || 0).toFixed(2)} 
+        | THB: ${(data.totalThb || 0).toFixed(2)}
+      </div>`;
+  }).join('');
 }
 
 function showNotification(message, type = 'info') {
   const n = document.createElement('div');
   n.className = `notification ${type}`;
-  n.style.cssText = `position:fixed;top:20px;right:20px;padding:10px 20px;background:#333;color:#fff;border-radius:5px;z-index:9999;`;
+  n.style.cssText = `position:fixed;top:20px;right:20px;padding:10px 20px;background:#333;color:#fff;border-radius:5px;z-index:9999;border-left:5px solid ${type === 'success' ? '#4caf50' : '#f44336'}`;
   n.textContent = message;
   document.body.appendChild(n);
   setTimeout(() => n.remove(), 3000);
@@ -336,9 +423,11 @@ function initializeTabs() {
       tabBtns.forEach(b => b.classList.remove('active'));
       tabPanes.forEach(p => p.classList.remove('active'));
       btn.classList.add('active');
-      document.getElementById(`tab-${target}`).classList.add('active');
+      const pane = document.getElementById(`tab-${target}`);
+      if (pane) pane.classList.add('active');
       localStorage.setItem('activeTab', target);
       if (target === 'rank') renderRankChart('name');
+      if (target === 'exchangeReserve') loadReservations();
     });
   });
   const saved = localStorage.getItem('activeTab') || 'allRecords';
@@ -356,12 +445,26 @@ async function updateInputSuggestions() {
   } catch (e) { console.error("建议获取失败", e); }
 }
 
-// 统一 HTML 调用接口
 window.updateSuggestions = updateInputSuggestions;
 
 window.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   initializeTabs();
 });
+
+
+// --- 统一的删除记录逻辑 (放在 renderer.js 最后) ---
+window.deleteRecord = async function (id) {
+  if (!confirm('确定要删除吗？')) return;
+  const result = await window.expenseAPI.deleteExpense(id);
+  if (result.success) {
+    await loadAndDisplayData(); // 必须调用这个刷新函数
+    showNotification('已删除', 'success');
+    updateInputSuggestions();
+  }
+};
+// 兼容旧代码调用
+window.deleteExpense = window.deleteRecord;
+window.loadData = loadAndDisplayData;
 
 window.renderRankChart = renderRankChart;
