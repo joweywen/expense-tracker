@@ -87,7 +87,8 @@
               <span id="conversionText">请输入金额</span>
             </div>
           </div>
-          <button type="submit" class="btn-primary">添加记录</button>
+          <button type="submit" id="submitExpenseBtn" class="btn-primary">添加记录</button>
+          <button type="button" id="cancelEditBtn" class="btn-secondary" hidden>取消修改</button>
         </form>
       </section>
 
@@ -114,6 +115,7 @@
           <div class="stat-card highlight-usdt"><div class="stat-label">总金额 (USDT)</div><div class="stat-value" id="totalUsdt">0.00</div></div>
           <div class="stat-card highlight-rmb"><div class="stat-label">总金额 (RMB)</div><div class="stat-value" id="totalRmb">¥0.00</div></div>
           <div class="stat-card highlight-thb"><div class="stat-label">总金额 (THB)</div><div class="stat-value" id="totalThb">฿0.00</div></div>
+          <div class="stat-card highlight-rmb"><div class="stat-label">当前账期毛利润 (RMB，USDT × 0.4～0.5)</div><div class="stat-value" id="grossProfitRmb">¥0.00 ～ ¥0.00</div></div>
         </div>
 
         <div class="tabs-container">

@@ -30,6 +30,9 @@ contextBridge.exposeInMainWorld('expenseAPI', {
   // 删除费用记录
   deleteExpense: (id) => ipcRenderer.invoke('delete-expense', id),
 
+  // 修改费用记录
+  updateExpense: (expense) => ipcRenderer.invoke('update-expense', expense),
+
   // 计算统计数据
   calculateStatistics: (dateRange) => ipcRenderer.invoke('calculate-statistics', dateRange),
 

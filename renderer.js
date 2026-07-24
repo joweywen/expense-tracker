@@ -26,6 +26,7 @@ const totalCountEl = document.getElementById('totalCount');
 const totalUsdtEl = document.getElementById('totalUsdt');
 const totalRmbEl = document.getElementById('totalRmb');
 const totalThbEl = document.getElementById('totalThb');
+const grossProfitRmbEl = document.getElementById('grossProfitRmb');
 const dateStatsEl = document.getElementById('dateStats');
 const locationStatsEl = document.getElementById('locationStats');
 const dateLocationStatsEl = document.getElementById('dateLocationStats');
@@ -45,6 +46,10 @@ let currentExchangeRateUsdtThb = 35.5;
 let currentExchangeRateRmbThb = 4.9;
 let currentExchangeRateUsdtRmb = 7.24;
 let currentDateRange = null;
+let displayedExpenses = new Map();
+let editingExpenseId = null;
+const submitExpenseBtn = document.getElementById('submitExpenseBtn');
+const cancelEditBtn = document.getElementById('cancelEditBtn');
 
 // 初始化日期
 if (dateInput) dateInput.valueAsDate = new Date();
@@ -176,18 +181,46 @@ form.addEventListener('submit', async (e) => {
   else expense.thb = parseFloat(thbAmountInput.value);
 
   try {
-    const result = await window.expenseAPI.addExpense(expense);
+    const isEditing = editingExpenseId !== null;
+    const result = isEditing
+      ? await window.expenseAPI.updateExpense({ ...expense, id: editingExpenseId })
+      : await window.expenseAPI.addExpense(expense);
     if (result.success) {
-      nameInput.value = ''; locationInput.value = ''; usdtAmountInput.value = ''; rmbAmountInput.value = ''; thbAmountInput.value = '';
-      dateInput.valueAsDate = new Date();
-      conversionText.textContent = '请输入金额';
+      resetExpenseForm();
       await loadAndDisplayData();
       await updateInputSuggestions();
-      showNotification('费用添加成功！', 'success');
+      showNotification(isEditing ? '费用修改成功！' : '费用添加成功！', 'success');
       nameInput.focus();
+    } else {
+      showNotification(result.error || '操作失败', 'error');
     }
   } catch (error) { showNotification('操作失败：' + error.message, 'error'); }
 });
+
+function setInputType(inputType) {
+  const radio = document.querySelector(`input[name="inputType"][value="${inputType}"]`);
+  if (radio) radio.checked = true;
+  usdtAmountInput.disabled = inputType !== 'usdt';
+  rmbAmountInput.disabled = inputType !== 'rmb';
+  thbAmountInput.disabled = inputType !== 'thb';
+}
+
+function resetExpenseForm() {
+  editingExpenseId = null;
+  form.reset();
+  dateInput.valueAsDate = new Date();
+  nameInput.readOnly = false;
+  locationInput.readOnly = false;
+  setInputType('usdt');
+  usdtAmountInput.value = '';
+  rmbAmountInput.value = '';
+  thbAmountInput.value = '';
+  conversionText.textContent = '请输入金额';
+  submitExpenseBtn.textContent = '添加记录';
+  cancelEditBtn.hidden = true;
+}
+
+if (cancelEditBtn) cancelEditBtn.addEventListener('click', resetExpenseForm);
 
 // --- 新增：预约换汇逻辑处理 ---
 
@@ -328,28 +361,49 @@ async function renderRankChart(type, limit = 10) {
 }
 
 function displayRecords(expenses) {
+  displayedExpenses = new Map((expenses || []).map(expense => [expense.id, expense]));
   if (!expenses || expenses.length === 0) {
     recordsBody.innerHTML = '<tr><td colspan="7">暂无记录</td></tr>';
     return;
   }
-  // 修正：删除了所有的注释代码，只保留一个删除按钮
   const rows = expenses.map((expense) => `
     <tr>
-      <td>${expense.date}</td>
-      <td>${expense.name}</td>
+      <td>${escapeHtml(expense.date)}</td>
+      <td>${escapeHtml(expense.name)}</td>
       <td>${(expense.usdt || 0).toFixed(2)}</td>
       <td>¥${(expense.rmb || 0).toFixed(2)}</td>
       <td>฿${(expense.thb || 0).toFixed(2)}</td>
-      <td>${expense.location}</td>
-      <td><button class="btn-delete" onclick="deleteRecord(${expense.id})">删除</button></td>
+      <td>${escapeHtml(expense.location)}</td>
+      <td><button class="btn-edit" onclick="editRecord(${expense.id})">修改</button><button class="btn-delete" onclick="deleteRecord(${expense.id})">删除</button></td>
     </tr>`).join('');
   recordsBody.innerHTML = rows;
 }
 
-window.deleteRecord = async function (id) {
-  if (!confirm('确定要删除吗？')) return;
-  const result = await window.expenseAPI.deleteExpense(id);
-  if (result.success) { loadAndDisplayData(); showNotification('已删除', 'success'); updateInputSuggestions(); }
+function escapeHtml(value) {
+  const node = document.createElement('span');
+  node.textContent = value ?? '';
+  return node.innerHTML;
+}
+
+window.editRecord = function (id) {
+  const expense = displayedExpenses.get(id);
+  if (!expense) { showNotification('找不到要修改的记录，请刷新后重试', 'error'); return; }
+  editingExpenseId = id;
+  dateInput.value = expense.date;
+  nameInput.value = expense.name;
+  locationInput.value = expense.location;
+  nameInput.readOnly = false;
+  locationInput.readOnly = false;
+  const inputType = ['usdt', 'rmb', 'thb'].includes(expense.input_type) ? expense.input_type : 'usdt';
+  setInputType(inputType);
+  usdtAmountInput.value = inputType === 'usdt' ? Number(expense.usdt || 0).toFixed(2) : '';
+  rmbAmountInput.value = inputType === 'rmb' ? Number(expense.rmb || 0).toFixed(2) : '';
+  thbAmountInput.value = inputType === 'thb' ? Number(expense.thb || 0).toFixed(2) : '';
+  updateConversionDisplay();
+  submitExpenseBtn.textContent = '保存修改';
+  cancelEditBtn.hidden = false;
+  document.querySelector('.input-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  nameInput.focus();
 };
 
 function displayStatistics(stats) {
@@ -357,6 +411,8 @@ function displayStatistics(stats) {
   totalUsdtEl.textContent = (stats.totalUsdt || 0).toFixed(2);
   totalRmbEl.textContent = '¥' + (stats.totalRmb || 0).toFixed(2);
   totalThbEl.textContent = '฿' + (stats.totalThb || 0).toFixed(2);
+  const totalUsdt = stats.totalUsdt || 0;
+  grossProfitRmbEl.textContent = `¥${(totalUsdt * 0.4).toFixed(2)} ～ ¥${(totalUsdt * 0.5).toFixed(2)}`;
   displayDateStats(stats.byDate);
   displayLocationStats(stats.byLocation);
   displayDateLocationStats(stats.byDateAndLocation);
@@ -440,8 +496,16 @@ async function updateInputSuggestions() {
     const { names, locations } = await window.expenseAPI.getSuggestions();
     const nameList = document.getElementById('nameList');
     const locList = document.getElementById('locationList');
-    if (nameList) nameList.innerHTML = (names || []).map(n => `<option value="${n}">`).join('');
-    if (locList) locList.innerHTML = (locations || []).map(l => `<option value="${l}">`).join('');
+    const fillSuggestions = (list, values) => {
+      if (!list) return;
+      list.replaceChildren(...[...new Set((values || []).filter(Boolean))].map(value => {
+        const option = document.createElement('option');
+        option.value = value;
+        return option;
+      }));
+    };
+    fillSuggestions(nameList, names);
+    fillSuggestions(locList, locations);
   } catch (e) { console.error("建议获取失败", e); }
 }
 
@@ -453,14 +517,20 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 
-// --- 统一的删除记录逻辑 (放在 renderer.js 最后) ---
 window.deleteRecord = async function (id) {
   if (!confirm('确定要删除吗？')) return;
   const result = await window.expenseAPI.deleteExpense(id);
   if (result.success) {
     await loadAndDisplayData(); // 必须调用这个刷新函数
     showNotification('已删除', 'success');
-    updateInputSuggestions();
+    await updateInputSuggestions();
+    // 删除后显式恢复为可键盘输入的表单，历史建议仅作提示，不会锁定输入内容。
+    if (!editingExpenseId) {
+      nameInput.readOnly = false;
+      locationInput.readOnly = false;
+      nameInput.disabled = false;
+      locationInput.disabled = false;
+    }
   }
 };
 // 兼容旧代码调用

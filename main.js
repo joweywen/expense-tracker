@@ -126,40 +126,55 @@ ipcMain.handle('set-exchange-rate', async (event, rates) => {
 
 ipcMain.handle('add-expense', async (event, expense) => {
   try {
-    let usdt = null, thb = 0, rmb = null;
-    const it = expense.inputType;
-
-    if (it === 'usdt') {
-      usdt = parseFloat(expense.usdt);
-      thb = usdt * exchangeRateUsdtThb;
-      rmb = usdt * exchangeRateUsdtRmb;
-    } else if (it === 'rmb') {
-      rmb = parseFloat(expense.rmb);
-      thb = rmb * exchangeRateRmbThb;
-      usdt = rmb / (exchangeRateUsdtRmb || 1);
-    } else {
-      thb = parseFloat(expense.thb);
-      usdt = thb / exchangeRateUsdtThb;
-      rmb = thb / exchangeRateRmbThb;
-    }
+    const { usdt, thb, rmb, inputType } = calculateExpenseAmounts(expense);
 
     db.prepare(`
       INSERT INTO expenses (date, name, location, usdt, thb, rmb, exchange_rate_usdt_thb, exchange_rate_rmb_thb, input_type, timestamp)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(expense.date, expense.name, expense.location, usdt, thb, rmb, exchangeRateUsdtThb, exchangeRateRmbThb, it, new Date().toISOString());
+    `).run(expense.date, expense.name, expense.location, usdt, thb, rmb, exchangeRateUsdtThb, exchangeRateRmbThb, inputType, new Date().toISOString());
 
     return { success: true };
   } catch (e) { return { success: false, error: e.message }; }
 });
 
+function calculateExpenseAmounts(expense) {
+  const inputType = expense.inputType;
+  let usdt, thb, rmb;
+  if (inputType === 'usdt') {
+    usdt = Number(expense.usdt);
+    thb = usdt * exchangeRateUsdtThb;
+    rmb = usdt * exchangeRateUsdtRmb;
+  } else if (inputType === 'rmb') {
+    rmb = Number(expense.rmb);
+    thb = rmb * exchangeRateRmbThb;
+    usdt = rmb / exchangeRateUsdtRmb;
+  } else if (inputType === 'thb') {
+    thb = Number(expense.thb);
+    usdt = thb / exchangeRateUsdtThb;
+    rmb = thb / exchangeRateRmbThb;
+  } else {
+    throw new Error('无效的金额币种');
+  }
+  if (!expense.date || !expense.name?.trim() || !expense.location?.trim() || !Number.isFinite(usdt) || usdt <= 0) {
+    throw new Error('请完整填写日期、姓名、位置和有效金额');
+  }
+  return { usdt, thb, rmb, inputType };
+}
+
+function buildExpenseQuery(filters = {}) {
+  const conditions = [];
+  const params = [];
+  if (filters.startDate) { conditions.push('date >= ?'); params.push(filters.startDate); }
+  if (filters.endDate) { conditions.push('date <= ?'); params.push(filters.endDate); }
+  if (filters.name) { conditions.push('name LIKE ? COLLATE NOCASE'); params.push(`%${filters.name.trim()}%`); }
+  if (filters.location) { conditions.push('location LIKE ? COLLATE NOCASE'); params.push(`%${filters.location.trim()}%`); }
+  return { where: conditions.length ? ` WHERE ${conditions.join(' AND ')}` : '', params };
+}
+
 ipcMain.handle('get-expenses', async (event, dateRange) => {
   try {
-    let sql = 'SELECT * FROM expenses';
-    let params = [];
-    if (dateRange && dateRange.startDate && dateRange.endDate) {
-      sql += ' WHERE date BETWEEN ? AND ?';
-      params = [dateRange.startDate, dateRange.endDate];
-    }
+    const { where, params } = buildExpenseQuery(dateRange);
+    let sql = `SELECT * FROM expenses${where}`;
     sql += ' ORDER BY date DESC, id DESC';
     const rows = db.prepare(sql).all(...params);
 
@@ -175,12 +190,8 @@ ipcMain.handle('get-expenses', async (event, dateRange) => {
 
 ipcMain.handle('calculate-statistics', async (event, dateRange) => {
   try {
-    let sql = 'SELECT * FROM expenses';
-    let params = [];
-    if (dateRange && dateRange.startDate && dateRange.endDate) {
-      sql += ' WHERE date BETWEEN ? AND ?';
-      params = [dateRange.startDate, dateRange.endDate];
-    }
+    const { where, params } = buildExpenseQuery(dateRange);
+    const sql = `SELECT * FROM expenses${where}`;
     const rows = db.prepare(sql).all(...params);
 
     const stats = { byDate: {}, byLocation: {}, byDateAndLocation: {}, totalUsdt: 0, totalThb: 0, totalRmb: 0, totalCount: rows.length };
@@ -227,6 +238,22 @@ ipcMain.handle('calculate-statistics', async (event, dateRange) => {
 ipcMain.handle('delete-expense', async (event, id) => {
   db.prepare('DELETE FROM expenses WHERE id = ?').run(id);
   return { success: true };
+});
+
+ipcMain.handle('update-expense', async (event, expense) => {
+  try {
+    if (!Number.isInteger(Number(expense.id))) throw new Error('无效的记录 ID');
+    const { usdt, thb, rmb, inputType } = calculateExpenseAmounts(expense);
+    const result = db.prepare(`
+      UPDATE expenses
+      SET date = ?, name = ?, location = ?, usdt = ?, thb = ?, rmb = ?,
+          exchange_rate_usdt_thb = ?, exchange_rate_rmb_thb = ?, input_type = ?, timestamp = ?
+      WHERE id = ?
+    `).run(expense.date, expense.name.trim(), expense.location.trim(), usdt, thb, rmb,
+      exchangeRateUsdtThb, exchangeRateRmbThb, inputType, new Date().toISOString(), Number(expense.id));
+    if (!result.changes) throw new Error('未找到要修改的记录');
+    return { success: true };
+  } catch (e) { return { success: false, error: e.message }; }
 });
 
 ipcMain.handle('get-rank-data', async (event, { type, limit = 10 }) => {
